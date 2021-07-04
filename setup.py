@@ -18,7 +18,10 @@ setuptools.setup(
     install_requires=[
         'numpy',
         'numpy-quaternion',
-        'opencv-python'
+        'opencv-python',
+        'opencv-contrib-python',
+        'scipy',
+        'numba'
     ],
     extras_require={
 
