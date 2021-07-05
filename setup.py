@@ -24,7 +24,9 @@ setuptools.setup(
         'numba'
     ],
     extras_require={
-
+        'debug': [
+            'pyvista'
+        ]
     },
     python_requires='>=3.6',
 )
