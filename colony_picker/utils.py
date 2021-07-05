@@ -145,6 +145,33 @@ def view_projection(points_3d: np.ndarray,
     return plotter
 
 
+def generate_fiducials(
+        tag_dictionary: cv2.aruco_Dictionary,
+        ids: np.ndarray,
+        size: float,
+        base_file_name: str,
+        include_white_border: bool = False,
+        dpi: float = 300):
+    pixels = int(dpi * (size / 25.4))  # Convert to mm
+
+    for id in ids:
+
+        tag = cv2.aruco.drawMarker(tag_dictionary, id, pixels)
+        if include_white_border:
+            num_squares = tag_dictionary.markerSize + 2
+            square_size = int(pixels / num_squares)
+            # One additional pixel is left on each side or a "black" border to
+            # make tag easy to cut out.
+            new_pixels = pixels + 2 * square_size + 2
+
+            border = np.zeros((new_pixels, new_pixels))
+            border[1:-1, 1:-1] = 255
+            border[square_size:square_size + pixels,
+                   square_size:square_size + pixels] = tag
+            tag = border
+        cv2.imwrite(f"{base_file_name}_{id}.png", tag)
+
+
 def rotate_image_card_3d(
         img: np.ndarray,
         img_size: np.ndarray,
