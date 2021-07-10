@@ -1,3 +1,4 @@
+from colony_picker.fiducial_fuser import Camera, Fiducial, FiducialFuser
 import unittest
 import cv2
 import numpy as np
@@ -36,7 +37,37 @@ class TestFiducialFuser(unittest.TestCase):
         self.tag_positions = np.array(pos_list)
 
     def test_fiducial_fuser(self):
-        pass
+        tags_ids = list(range(12))
+        tag_xyz_1 = [[-27.25, 25 + 50 * (5 - i), 3.5] for i in range(6)]
+        tag_xyz_2 = [[25 + + 50 * i, -27.25, 3.5] for i in range(6)]
+        tag_pos = np.concatenate([tag_xyz_1, tag_xyz_2], axis=0)
+
+        tag_trans_mat = np.tile(np.eye(4), (12, 1, 1))
+        tag_trans_mat[:, :3, 3] = tag_pos
+
+        fiducials = [Fiducial(id, trans, 32) for id, trans in zip(tags_ids, tag_trans_mat)]
+        tag_dict = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
+
+        fuser = FiducialFuser(fiducials, tag_dict)
+        cap = cv2.VideoCapture('/home/maxschommer/Downloads/VID_20210705_144625216.mp4')
+        _, frame = cap.read()
+        f = 1600
+        cam = Camera(f, f, frame.shape[0] / 2, frame.shape[1] / 2)
+
+        for i in range(100):
+            _, frame = cap.read()
+            corners, ids, _ = cv2.aruco.detectMarkers(frame, tag_dict)
+            pose = fuser.estimate_pose(corners, ids, cam)
+            cv2.aruco.drawDetectedMarkers(frame, corners)
+            r_vec, _ = cv2.Rodrigues(pose[:3, :3])
+            t_vec = pose[:3, 3]
+            cv2.aruco.drawAxis(
+                frame, cam.matrix.astype(np.float32),
+                cam.dist_coefficients.astype(np.float32),
+                r_vec, t_vec, 200)
+
+            cv2.imshow("frame", frame)
+            cv2.waitKey(0)
 
 
 if __name__ == "__main__":

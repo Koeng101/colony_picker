@@ -2,6 +2,7 @@ import logging
 from typing import List
 import numpy as np
 import cv2
+from numpy.lib.index_tricks import r_
 import quaternion
 from colony_picker.utils import augment_vec
 
@@ -79,23 +80,27 @@ class Fiducial():
 
 class FiducialFuser():
     def __init__(self, fiducials: List[Fiducial],
-                 dictionary: cv2.aruco.Dictionary):
+                 dictionary: cv2.aruco_Dictionary):
         self.fiducials = fiducials
 
         all_points = np.concatenate([f.points_3d for f in fiducials], axis=0)
         self.points = all_points
-        self.ids = [f.id for f in fiducials]
-        self.board = cv2.aruco.Board_create(self.points, dictionary, self.ids)
+        self.ids = np.array([f.id for f in fiducials], dtype=np.int16)
+
+        board_points = np.reshape(self.points, (len(self.ids), -1, 3)).astype(np.float32)
+        self.board = cv2.aruco.Board_create(board_points, dictionary, self.ids)
 
     def estimate_pose(self, marker_corners, marker_ids, camera: Camera):
-        _, r_vec, t_vec = cv2.aruco.estimateBoardPose(marker_corners,
+        _, r_vec, t_vec = cv2.aruco.estimatePoseBoard(marker_corners,
                                                       marker_ids,
                                                       self.board,
                                                       camera.matrix,
-                                                      camera.dist_coefficients
+                                                      camera.dist_coefficients,
+                                                      np.zeros(3, dtype=np.float32),
+                                                      np.zeros(3, dtype=np.float32)
                                                       )
 
-        r_mat = cv2.Rodrigues(r_vec)
+        r_mat, _ = cv2.Rodrigues(r_vec)
         transform = np.eye(4)
         transform[:3, :3] = r_mat
         transform[:3, 3] = t_vec
