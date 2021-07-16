@@ -1,5 +1,6 @@
 import numpy as np
 import math
+import matplotlib.pyplot as plt
 
 # Denavit-Hartenberg Parameters of AR3 provided by
 # AR2 Version 2.0 software executable files from
@@ -98,24 +99,42 @@ def get_end_effector_pose(thetas):
 
 
 def find_joint_angles(current_thetas, desired_end_effector_pose):
-    error = 1
+    error = np.ones(6)
     iters = 0
-    while error > 0 and iters < 100:
-        iters += 1
+    desired_error = np.zeros(6)
+    z_rotation_error = []
+
+    while np.all(np.greater(error, desired_error)) or iters < 1000:
         current_end_effector_pose = get_end_effector_pose(current_thetas)
-        error = np.subtract(
+
+        error_directional = np.subtract(
             desired_end_effector_pose, current_end_effector_pose)
+        error = np.absolute(error_directional)
+        print(f"=======ITER {iters}=======")
+        print(f"ERROR: {error_directional}")
+        print(f"CURRENT END EFFECTOR POSE: {current_end_effector_pose}")
+        print(f"CURRENT JOINT ANGLES: {current_thetas}")
+        print(f"=========================")
+        z_rotation_error.append(error_directional[1])
 
         jacobian = get_jacobian(current_thetas)
         jacobian_generalized_inverse = np.linalg.pinv(jacobian)
         d_thetas = np.matmul(jacobian_generalized_inverse,
-                             0.1*error)
+                             0.5*error_directional)
         current_thetas = np.add(current_thetas, d_thetas)
-        print(f"=======ITER {iter}=======")
-        print(f"ERROR: {error}")
-        print(f"CURRENT END EFFECTOR POSE: {current_end_effector_pose}")
-        print(f"CURRENT JOINT ANGLES: {current_thetas}")
-        print(f"=========================")
+        iters += 1
+
+    print(f"*************************")
+    print(f"final NUMBER OF ITERATIONS: {iters}")
+    print(f"final ERROR: {error}")
+    print(f"final END EFFECTOR POSE: {current_end_effector_pose}")
+    print(f"final JOINT ANGLES: {current_thetas}")
+    print(f"*************************")
+
+    print(len(z_rotation_error))
+    print(iters)
+    plt.plot(list(range(0, iters)), z_rotation_error)
+    plt.show()
 
 
 thetas_init = np.array([0, 0, 0, 0, 0, 0])
