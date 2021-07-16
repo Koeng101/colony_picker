@@ -81,8 +81,8 @@ def get_jacobian(thetas):
 
 def get_euler_from_rot_mat(rot_mat):
     return np.array([math.atan2(rot_mat[2, 1], rot_mat[2, 2]),
-                     math.atan2(-rot_mat[2, 0], math.sqrt(rot_mat[2, 1]
-                                ^ 2 + rot_mat[2, 2] ^ 2)),
+                     math.atan2(-rot_mat[2, 0], math.sqrt(np.square(rot_mat[2, 1])
+                                                          + np.square(rot_mat[2, 2]))),
                      math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
 
 
@@ -118,6 +118,6 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
         print(f"=========================")
 
 
-thetas_init = [0, 0, 0, 0, 0, 0]
-desired_end_effector_pose = [0, 10, 20, 0, math.pi/2, 0]
-jacobian = get_jacobian([0, 0, 0, 0, 0, 0])
+thetas_init = np.array([0, 0, 0, 0, 0, 0])
+desired_end_effector_pose = np.array([0, 10, 20, 0, math.pi/2, 0])
+find_joint_angles(thetas_init, desired_end_effector_pose)
