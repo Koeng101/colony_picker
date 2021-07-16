@@ -45,19 +45,27 @@ def get_t_mats(thetas):
 
 
 def get_end_effector_vectors(t_mats):
-    e_vectors = []
+    end_effector_vectors = []
     end_effector_t_mat = t_mats[-1]
     for joint_idx in range(0, NUM_JOINTS):
         t_mat = t_mats[joint_idx]
-        e_vector = np.subtract(end_effector_t_mat[:3, 3], t_mat[:3, 3])
-        e_vectors.append(e_vector)
+        end_effector_vector = np.subtract(
+            end_effector_t_mat[:3, 3], t_mat[:3, 3])
+        end_effector_vectors.append(end_effector_vector)
+    return end_effector_vectors
 
 
 def get_jacobian(thetas):
     t_mats = get_t_mats(thetas)
     end_effector_vectors = get_end_effector_vectors(t_mats)
     jacobian = np.zeros((6, NUM_JOINTS))
-    for joint_idx in NUM_JOINTS:
+    for joint_idx in range(0, NUM_JOINTS):
         t_mat = t_mats[joint_idx]
+        rot_axis = t_mat[:3, 2]
         jacobian[:3, joint_idx] = np.cross(
-            t_mat[:3, 2], end_effector_vectors[joint_idx])
+            rot_axis, end_effector_vectors[joint_idx])
+        jacobian[3:, joint_idx] = rot_axis
+    return jacobian
+
+
+get_jacobian([0, 0, 0, 0, 0, 0])
