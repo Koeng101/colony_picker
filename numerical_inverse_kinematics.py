@@ -12,6 +12,9 @@ theta_offsets = [0, 0, -(math.pi/2), 0, 0, math.pi]
 
 NUM_JOINTS = 6
 
+# Got this formula for the transformation matrices using DH parameters
+# from this site: https://blog.robotiq.com/how-to-calculate-a-robots-forward-kinematics-in-5-easy-steps
+
 
 def get_t_mat(theta, theta_offset, a, alpha, d):
     theta += theta_offset
@@ -54,6 +57,12 @@ def get_end_effector_vectors(t_mats):
         end_effector_vectors.append(end_effector_vector)
     return end_effector_vectors
 
+# Got the formula for the rotational component of the Jacobian from this website:
+# https://www.rosroboticslearning.com/jacobian
+# Got the formula for the cross product method for computing the translational
+# component of the Jacobian from slide 19/30 of this
+# lecture: https://www.cs.cmu.edu/~15464-s13/lectures/lecture6/IK.pdf
+
 
 def get_jacobian(thetas):
     t_mats = get_t_mats(thetas)
@@ -68,4 +77,8 @@ def get_jacobian(thetas):
     return jacobian
 
 
-get_jacobian([0, 0, 0, 0, 0, 0])
+def get_generalized_inverse(jacobian):
+    return 0
+
+
+jacobian = get_jacobian([0, 0, 0, 0, 0, 0])
