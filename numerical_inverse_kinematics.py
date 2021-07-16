@@ -47,7 +47,7 @@ def get_t_mats(thetas):
     return t_mats
 
 
-def get_end_effector_vectors(t_mats):
+def get_joint_to_end_effector_vectors(t_mats):
     end_effector_vectors = []
     end_effector_t_mat = t_mats[-1]
     for joint_idx in range(0, NUM_JOINTS):
@@ -66,7 +66,7 @@ def get_end_effector_vectors(t_mats):
 
 def get_jacobian(thetas):
     t_mats = get_t_mats(thetas)
-    end_effector_vectors = get_end_effector_vectors(t_mats)
+    end_effector_vectors = get_joint_to_end_effector_vectors(t_mats)
     jacobian = np.zeros((6, NUM_JOINTS))
     for joint_idx in range(0, NUM_JOINTS):
         t_mat = t_mats[joint_idx]
@@ -76,9 +76,48 @@ def get_jacobian(thetas):
         jacobian[3:, joint_idx] = rot_axis
     return jacobian
 
-
-def get_generalized_inverse(jacobian):
-    return 0
+# used this source for this formula: https://stackoverflow.com/questions/15022630/how-to-calculate-the-angle-from-rotation-matrix
 
 
+def get_euler_from_rot_mat(rot_mat):
+    return np.array([math.atan2(rot_mat[2, 1], rot_mat[2, 2]),
+                     math.atan2(-rot_mat[2, 0], math.sqrt(rot_mat[2, 1]
+                                ^ 2 + rot_mat[2, 2] ^ 2)),
+                     math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
+
+
+def get_end_effector_pose(thetas):
+    t_mats = get_t_mats(thetas)
+    end_effector_position = t_mats[-1][:3, 3]
+    rot_mat = t_mats[-1][:3, :3]
+    end_effector_rotation = get_euler_from_rot_mat(rot_mat)
+    end_effector_pose = np.zeros(6)
+    end_effector_pose[:3] = end_effector_position
+    end_effector_pose[3:] = end_effector_rotation
+    return end_effector_pose
+
+
+def find_joint_angles(current_thetas, desired_end_effector_pose):
+    error = 1
+    iters = 0
+    while error > 0 and iters < 100:
+        iters += 1
+        current_end_effector_pose = get_end_effector_pose(current_thetas)
+        error = np.subtract(
+            desired_end_effector_pose, current_end_effector_pose)
+
+        jacobian = get_jacobian(current_thetas)
+        jacobian_generalized_inverse = np.linalg.pinv(jacobian)
+        d_thetas = np.matmul(jacobian_generalized_inverse,
+                             0.1*error)
+        current_thetas = np.add(current_thetas, d_thetas)
+        print(f"=======ITER {iter}=======")
+        print(f"ERROR: {error}")
+        print(f"CURRENT END EFFECTOR POSE: {current_end_effector_pose}")
+        print(f"CURRENT JOINT ANGLES: {current_thetas}")
+        print(f"=========================")
+
+
+thetas_init = [0, 0, 0, 0, 0, 0]
+desired_end_effector_pose = [0, 10, 20, 0, math.pi/2, 0]
 jacobian = get_jacobian([0, 0, 0, 0, 0, 0])
