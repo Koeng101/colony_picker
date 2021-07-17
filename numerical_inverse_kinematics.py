@@ -86,6 +86,20 @@ def get_euler_from_rot_mat(rot_mat):
                                                           + np.square(rot_mat[2, 2]))),
                      math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
 
+# def get_euler_from_rot_mat(rot_mat):
+#     sy = math.sqrt(rot_mat[0, 0] * rot_mat[0, 0] +
+#                    rot_mat[1, 0] * rot_mat[1, 0])
+#     singular = sy < 1e-6
+#     if not singular:
+#         x = math.atan2(rot_mat[2, 1], rot_mat[2, 2])
+#         y = math.atan2(-rot_mat[2, 0], sy)
+#         z = math.atan2(rot_mat[1, 0], rot_mat[0, 0])
+#     else:
+#         x = math.atan2(-rot_mat[1, 2], rot_mat[1, 1])
+#         y = math.atan2(-rot_mat[2, 0], sy)
+#         z = 0
+#     return np.array([x, y, z])
+
 
 def get_end_effector_pose(thetas):
     t_mats = get_t_mats(thetas)
@@ -115,12 +129,12 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
         print(f"CURRENT END EFFECTOR POSE: {current_end_effector_pose}")
         print(f"CURRENT JOINT ANGLES: {current_thetas}")
         print(f"=========================")
-        z_rotation_error.append(error_directional[1])
+        z_rotation_error.append(error_directional[-1])
 
         jacobian = get_jacobian(current_thetas)
         jacobian_generalized_inverse = np.linalg.pinv(jacobian)
         d_thetas = np.matmul(jacobian_generalized_inverse,
-                             0.5*error_directional)
+                             0.1*error_directional)
         current_thetas = np.add(current_thetas, d_thetas)
         iters += 1
 
@@ -137,6 +151,6 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     plt.show()
 
 
-thetas_init = np.array([0, 0, 0, 0, 0, 0])
+thetas_init = np.array([0, math.pi/2, 0, 0, 0, 0])
 desired_end_effector_pose = np.array([0, 10, 20, 0, math.pi/2, 0])
 find_joint_angles(thetas_init, desired_end_effector_pose)
