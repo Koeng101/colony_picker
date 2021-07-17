@@ -33,29 +33,30 @@ def get_t_mat(theta, theta_offset, a, alpha, d):
 
 def get_t_mats(thetas):
     t_mats = []
-    end_effector_t_mat = np.identity(4)
-    for joint_idx in range(0, NUM_JOINTS):
+    accumulator_t_mat = np.identity(4)
+    for joint_idx in range(NUM_JOINTS):
         t_mat = get_t_mat(thetas[joint_idx],
                           theta_offsets[joint_idx],
                           a_vals[joint_idx],
                           alphas[joint_idx],
                           d_vals[joint_idx])
-        t_mats.append(t_mat)
-        end_effector_t_mat = np.matmul(t_mat, end_effector_t_mat)
-        if joint_idx == NUM_JOINTS:
-            t_mats.append(end_effector_t_mat)
+        accumulator_t_mat = np.matmul(t_mat, accumulator_t_mat)
+        t_mats.append(accumulator_t_mat)
 
     return t_mats
+
+# Error: assumed all transformation matrices are in the base frame when we must
+# multiply them to get them as such
 
 
 def get_joint_to_end_effector_vectors(t_mats):
     end_effector_vectors = []
     end_effector_t_mat = t_mats[-1]
-    for joint_idx in range(0, NUM_JOINTS):
+    for joint_idx in range(NUM_JOINTS):
         t_mat = t_mats[joint_idx]
-        end_effector_vector = np.subtract(
+        joint_to_end_effector_vector = np.subtract(
             end_effector_t_mat[:3, 3], t_mat[:3, 3])
-        end_effector_vectors.append(end_effector_vector)
+        end_effector_vectors.append(joint_to_end_effector_vector)
     return end_effector_vectors
 
 # Got the formula for the rotational component of the Jacobian from this website:
@@ -69,7 +70,7 @@ def get_jacobian(thetas):
     t_mats = get_t_mats(thetas)
     end_effector_vectors = get_joint_to_end_effector_vectors(t_mats)
     jacobian = np.zeros((6, NUM_JOINTS))
-    for joint_idx in range(0, NUM_JOINTS):
+    for joint_idx in range(NUM_JOINTS):
         t_mat = t_mats[joint_idx]
         rot_axis = t_mat[:3, 2]
         jacobian[:3, joint_idx] = np.cross(
@@ -116,9 +117,12 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     error = np.ones(6)
     iters = 0
     desired_error = np.zeros(6)
-    z_rotation_error = []
 
-    while np.all(np.greater(error, desired_error)) or iters < 1000:
+    errors = []
+    for end_effector_idx in range(6):
+        errors.append([])
+
+    while np.any(np.greater(error, desired_error)) and iters < 10000:
         current_end_effector_pose = get_end_effector_pose(current_thetas)
 
         error_directional = np.subtract(
@@ -129,12 +133,15 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
         print(f"CURRENT END EFFECTOR POSE: {current_end_effector_pose}")
         print(f"CURRENT JOINT ANGLES: {current_thetas}")
         print(f"=========================")
-        z_rotation_error.append(error_directional[-1])
+
+        for end_effector_idx in range(6):
+            errors[end_effector_idx].append(
+                current_end_effector_pose[end_effector_idx])
 
         jacobian = get_jacobian(current_thetas)
         jacobian_generalized_inverse = np.linalg.pinv(jacobian)
         d_thetas = np.matmul(jacobian_generalized_inverse,
-                             0.1*error_directional)
+                             0.002*error_directional)
         current_thetas = np.add(current_thetas, d_thetas)
         iters += 1
 
@@ -145,12 +152,16 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     print(f"final JOINT ANGLES: {current_thetas}")
     print(f"*************************")
 
-    print(len(z_rotation_error))
-    print(iters)
-    plt.plot(list(range(0, iters)), z_rotation_error)
+    for end_effector_idx in range(6):
+        plt.plot(list(range(0, iters)), errors[end_effector_idx])
     plt.show()
 
 
-thetas_init = np.array([0, math.pi/2, 0, 0, 0, 0])
-desired_end_effector_pose = np.array([0, 10, 20, 0, math.pi/2, 0])
+thetas_init = np.array([0, 0, 0, 0, 0, 0])
+desired_end_effector_pose = np.array([323.0799945, 0.05638699285, 474.7636732, -89.98*(
+    math.pi/180), 90.01*(math.pi/180), -90.00999825*(math.pi/180)])
 find_joint_angles(thetas_init, desired_end_effector_pose)
+# t_mats = get_t_mats(thetas_init)
+# print(len(t_mats))
+# for t_mat in t_mats:
+#     print(t_mat)
