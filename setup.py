@@ -21,7 +21,8 @@ setuptools.setup(
         'opencv-python',
         'opencv-contrib-python',
         'scipy',
-        'numba'
+        'numba',
+        'matplotlib',
     ],
     extras_require={
 
