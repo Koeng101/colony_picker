@@ -13,6 +13,7 @@ class test_inverse_kinematics(unittest.TestCase):
     """A unit test harness for the Pose class
     """
 
+    @unittest.skip("No reason")
     def test_get_t_mats(self):
         """Tests whether get_t_mats successfully generates transformation matrices
         in the base frame for each arm joint.
@@ -27,6 +28,9 @@ class test_inverse_kinematics(unittest.TestCase):
             for t_mat_idx_2 in range(t_mat_idx_1 + 1, len(t_mats)):
                 self.assertTrue(not np.array_equal(
                     t_mats[t_mat_idx_1], t_mats[t_mat_idx_2]))
+
+    def test_animate_plot(self):
+        animate_robot_arm()
 
 
 if __name__ == "__main__":

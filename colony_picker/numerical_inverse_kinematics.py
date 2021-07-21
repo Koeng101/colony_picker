@@ -10,7 +10,7 @@ import pyvista as pv
 alphas = [-(math.pi/2), 0, math.pi/2, -(math.pi/2), math.pi/2, 0]
 a_vals = [64.2, 305, 0, 0, 0, 0]
 d_vals = [169.77, 0, 0, -222.63, 0, -36.25]
-theta_offsets = [0, 0, -(math.pi/2), 0, 0, math.pi]
+theta_offsets = [0, -(math.pi/2), 0, 0, 0, math.pi]
 
 NUM_JOINTS = 6
 
@@ -43,11 +43,6 @@ def get_t_mats(thetas):
                           d_vals[joint_idx])
         accumulator_t_mat = np.matmul(accumulator_t_mat, t_mat)
         t_mats.append(accumulator_t_mat)
-    print("CUMULATIVE T_MATs: ")
-    for t_mat in t_mats:
-        print(t_mat)
-        print()
-    display_robot_arm(t_mats)
 
     return t_mats
 
@@ -59,7 +54,7 @@ def get_euler_from_rot_mat(rot_mat):
                      math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
 
 
-def draw_coordinate_system(plotter, t_mat, base=False):
+def draw_coordinate_system(plotter, t_mat, base=False, name=""):
     colors = ["red", "green", "blue"]
     position = t_mat[:3, 3]
     sphere = pv.Sphere(center=position, radius=4)
@@ -67,11 +62,12 @@ def draw_coordinate_system(plotter, t_mat, base=False):
         sphere_color = "black"
     else:
         sphere_color = "yellow"
-    plotter.add_mesh(sphere, color=sphere_color)
+    plotter.add_mesh(sphere, color=sphere_color, name=(name + "_sphere"))
     for axis_idx in range(3):
         axis = pv.Arrow(
             start=position, direction=t_mat[:3, axis_idx], scale=50)
-        plotter.add_mesh(axis, color=colors[axis_idx])
+        plotter.add_mesh(axis, color=colors[axis_idx], name=(
+            name + f"_coord_{axis_idx}"))
 
 
 def draw_links(plotter, joint_positions):
@@ -95,11 +91,40 @@ def display_robot_arm(t_mats):
             t_mat = np.identity(4)
             draw_coordinate_system(plotter, t_mat, base=True)
         else:
+
             t_mat = t_mats[joint_idx - 1]
             draw_coordinate_system(plotter, t_mat)
+
         positions[joint_idx, :3] = t_mat[:3, 3]
     draw_links(plotter, positions)
+    poly = pv.PolyData(positions[1:])
+    poly["labels"] = [f"Joint {i}" for i in range(NUM_JOINTS)]
+    plotter.add_point_labels(
+        poly, "labels", point_size=10, font_size=16, always_visible=True)
+
+    plotter.slider
     plotter.show()
+
+
+def animate_robot_arm():
+    from functools import partial
+    p = pv.Plotter()
+    draw_coordinate_system(p, np.eye(4), True)
+    thetas = np.zeros(6)
+
+    def callback(idx, theta):
+        thetas[idx] = theta
+        print(thetas)
+        t_mats = get_t_mats(thetas)
+        for i, t_mat in enumerate(t_mats):
+            draw_coordinate_system(p, t_mat, name=f"theta_{i}")
+
+    for i in range(NUM_JOINTS):
+        p.add_slider_widget(partial(callback, (i,)),
+                            [-np.pi, np.pi], pointa=(0.5, 0.95-0.1*i),
+                            pointb=(0.95, 0.95-0.1*i),
+                            title=f"Theta {i}", event_type="always")
+    p.show()
 
 
 def get_joint_to_end_effector_vectors(t_mats):
@@ -169,7 +194,7 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     for end_effector_idx in range(6):
         errors.append([])
 
-    while np.any(np.greater(error, desired_error)) and iters < 1000:
+    while np.any(np.greater(error, desired_error)) and iters < 10000:
         current_end_effector_pose = get_end_effector_pose(current_thetas)
 
         error_directional = np.subtract(
