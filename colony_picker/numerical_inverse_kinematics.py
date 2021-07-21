@@ -114,15 +114,14 @@ def animate_robot_arm():
 
     def callback(idx, theta):
         thetas[idx] = theta
-        print(thetas)
         t_mats = get_t_mats(thetas)
         for i, t_mat in enumerate(t_mats):
             draw_coordinate_system(p, t_mat, name=f"theta_{i}")
 
     for i in range(NUM_JOINTS):
         p.add_slider_widget(partial(callback, (i,)),
-                            [-np.pi, np.pi], pointa=(0.5, 0.95-0.1*i),
-                            pointb=(0.95, 0.95-0.1*i),
+                            [-np.pi, np.pi], pointa=(0.7, 0.9-0.15*i),
+                            pointb=(0.95, 0.9-0.15*i),
                             title=f"Theta {i}", event_type="always")
     p.show()
 
@@ -200,11 +199,11 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
         error_directional = np.subtract(
             desired_end_effector_pose, current_end_effector_pose)
         error = np.absolute(error_directional)
-        # print(f"=======ITER {iters}=======")
-        # print(f"ERROR: {error_directional}")
-        # print(f"CURRENT END EFFECTOR POSE: {current_end_effector_pose}")
-        # print(f"CURRENT JOINT ANGLES: {current_thetas}")
-        # print(f"=========================")
+        print(f"=======ITER {iters}=======")
+        print(f"ERROR: {error_directional}")
+        print(f"CURRENT END EFFECTOR POSE: {current_end_effector_pose}")
+        print(f"CURRENT JOINT ANGLES: {current_thetas}")
+        print(f"=========================")
 
         for end_effector_idx in range(6):
             errors[end_effector_idx].append(
@@ -217,22 +216,22 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
         current_thetas = np.add(current_thetas, d_thetas)
         iters += 1
 
-    # print(f"*************************")
-    # print(f"final NUMBER OF ITERATIONS: {iters}")
-    # print(f"final ERROR: {error}")
-    # print(f"final END EFFECTOR POSE: {current_end_effector_pose}")
-    # print(f"final JOINT ANGLES: {current_thetas}")
-    # print(f"*************************")
+    print(f"*************************")
+    print(f"final NUMBER OF ITERATIONS: {iters}")
+    print(f"final ERROR: {error}")
+    print(f"final END EFFECTOR POSE: {current_end_effector_pose}")
+    print(f"final JOINT ANGLES: {current_thetas}")
+    print(f"*************************")
 
     for end_effector_idx in range(6):
         plt.plot(list(range(0, iters)), errors[end_effector_idx])
     plt.show()
 
 
-# thetas_init = np.array([0, 0, 0, 0, 0, 0])
-# desired_end_effector_pose = np.array([30, 0, 475, -math.pi, math.pi, -math.pi])
-# find_joint_angles(thetas_init, desired_end_effector_pose)
-# t_mats = get_t_mats(thetas_init)
-# print(len(t_mats))
-# for t_mat in t_mats:
-#     print(t_mat)
+thetas_init = np.array([0, 0, 0, 0, 0, 0])
+desired_end_effector_pose = np.array([30, 0, 475, -math.pi, math.pi, -math.pi])
+find_joint_angles(thetas_init, desired_end_effector_pose)
+t_mats = get_t_mats(thetas_init)
+print(len(t_mats))
+for t_mat in t_mats:
+    print(t_mat)
