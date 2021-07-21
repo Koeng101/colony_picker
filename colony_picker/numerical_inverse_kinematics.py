@@ -7,7 +7,7 @@ import pyvista as pv
 # AR2 Version 2.0 software executable files from
 # https://www.anninrobotics.com/downloads
 # parameters are the same between the AR2 and AR3
-alphas = [-(math.pi/2), 0, math.pi, -(math.pi/2), math.pi/2, 0]
+alphas = [-(math.pi/2), 0, math.pi/2, -(math.pi/2), math.pi/2, 0]
 a_vals = [64.2, 305, 0, 0, 0, 0]
 d_vals = [169.77, 0, 0, -222.63, 0, -36.25]
 theta_offsets = [0, 0, -(math.pi/2), 0, 0, math.pi]
@@ -41,35 +41,65 @@ def get_t_mats(thetas):
                           a_vals[joint_idx],
                           alphas[joint_idx],
                           d_vals[joint_idx])
-        accumulator_t_mat = np.matmul(t_mat, accumulator_t_mat)
+        accumulator_t_mat = np.matmul(accumulator_t_mat, t_mat)
         t_mats.append(accumulator_t_mat)
-    display_joints(t_mats)
-    
+    print("CUMULATIVE T_MATs: ")
+    for t_mat in t_mats:
+        print(t_mat)
+        print()
+    display_robot_arm(t_mats)
+
     return t_mats
 
-def polyline_from_points(points):
+
+def get_euler_from_rot_mat(rot_mat):
+    return np.array([math.atan2(rot_mat[2, 1], rot_mat[2, 2]),
+                     math.atan2(-rot_mat[2, 0], math.sqrt(np.square(rot_mat[2, 1])
+                                                          + np.square(rot_mat[2, 2]))),
+                     math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
+
+
+def draw_coordinate_system(plotter, t_mat, base=False):
+    colors = ["red", "green", "blue"]
+    position = t_mat[:3, 3]
+    sphere = pv.Sphere(center=position, radius=4)
+    if base:
+        sphere_color = "black"
+    else:
+        sphere_color = "yellow"
+    plotter.add_mesh(sphere, color=sphere_color)
+    for axis_idx in range(3):
+        axis = pv.Arrow(
+            start=position, direction=t_mat[:3, axis_idx], scale=50)
+        plotter.add_mesh(axis, color=colors[axis_idx])
+
+
+def draw_links(plotter, joint_positions):
+    """Given an array of joint, draw the links between each joint"""
     poly = pv.PolyData()
-    poly.points = points
-    the_cell = np.arange(0, len(points), dtype=np.int_)
-    the_cell = np.insert(the_cell, 0, len(points))
-    poly.lines = the_cell
-    return poly
+    poly.points = joint_positions
+    cells = np.full((len(joint_positions)-1, 3), 2, dtype=np.int_)
+    cells[:, 1] = np.arange(0, len(joint_positions)-1, dtype=np.int_)
+    cells[:, 2] = np.arange(1, len(joint_positions), dtype=np.int_)
+    poly.lines = cells
+    poly["scalars"] = np.arange(poly.n_points)
+    tube = poly.tube(radius=1)
+    plotter.add_mesh(tube, color="yellow")
 
-def display_joints(t_mats):
+
+def display_robot_arm(t_mats):
     plotter = pv.Plotter()
-    colors = ["red", "green", "blue", "purple", "pink", "yellow"]
-    points = 
-    for joint_idx in range(NUM_JOINTS):
-        t_mat = t_mats[joint_idx]
-        sphere = pv.Sphere(radius = 100, center = t_mat[:3,3])
-        arrow = pv.Arrow()
-        plotter.add_mesh(sphere, color = colors[joint_idx])
-
+    positions = np.zeros((NUM_JOINTS + 1, 3))
+    for joint_idx in range(NUM_JOINTS + 1):
+        if joint_idx == 0:
+            t_mat = np.identity(4)
+            draw_coordinate_system(plotter, t_mat, base=True)
+        else:
+            t_mat = t_mats[joint_idx - 1]
+            draw_coordinate_system(plotter, t_mat)
+        positions[joint_idx, :3] = t_mat[:3, 3]
+    draw_links(plotter, positions)
     plotter.show()
-    
-
-# Error: assumed all transformation matrices are in the base frame when we must
-# multiply them to get them as such
 
 
 def get_joint_to_end_effector_vectors(t_mats):
@@ -103,12 +133,6 @@ def get_jacobian(thetas):
 
 # used this source for this formula: https://stackoverflow.com/questions/15022630/how-to-calculate-the-angle-from-rotation-matrix
 
-
-def get_euler_from_rot_mat(rot_mat):
-    return np.array([math.atan2(rot_mat[2, 1], rot_mat[2, 2]),
-                     math.atan2(-rot_mat[2, 0], math.sqrt(np.square(rot_mat[2, 1])
-                                                          + np.square(rot_mat[2, 2]))),
-                     math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
 
 # def get_euler_from_rot_mat(rot_mat):
 #     sy = math.sqrt(rot_mat[0, 0] * rot_mat[0, 0] +
