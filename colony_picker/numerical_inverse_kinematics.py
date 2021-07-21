@@ -86,22 +86,18 @@ def draw_links(plotter, joint_positions):
 def display_robot_arm(t_mats):
     plotter = pv.Plotter()
     positions = np.zeros((NUM_JOINTS + 1, 3))
-    for joint_idx in range(NUM_JOINTS + 1):
-        if joint_idx == 0:
-            t_mat = np.identity(4)
-            draw_coordinate_system(plotter, t_mat, base=True)
-        else:
-
-            t_mat = t_mats[joint_idx - 1]
-            draw_coordinate_system(plotter, t_mat)
-
+    t_mat = np.identity(4)
+    draw_coordinate_system(plotter, t_mat, base=True)
+    positions[0, :3] = t_mat[:3, 3]
+    for joint_idx in range(NUM_JOINTS):
+        t_mat = t_mats[joint_idx]
+        draw_coordinate_system(plotter, t_mat)
         positions[joint_idx, :3] = t_mat[:3, 3]
     draw_links(plotter, positions)
     poly = pv.PolyData(positions[1:])
     poly["labels"] = [f"Joint {i}" for i in range(NUM_JOINTS)]
     plotter.add_point_labels(
         poly, "labels", point_size=10, font_size=16, always_visible=True)
-
     plotter.slider
     plotter.show()
 
@@ -115,8 +111,12 @@ def animate_robot_arm():
     def callback(idx, theta):
         thetas[idx] = theta
         t_mats = get_t_mats(thetas)
+        # end_effector_pos = t_mats[-1][:3, 3]
+
         for i, t_mat in enumerate(t_mats):
             draw_coordinate_system(p, t_mat, name=f"theta_{i}")
+            # if i != 5:
+            #     draw_joint_to_end_effector_vector(p, t_mat, end_effector_pos)
 
     for i in range(NUM_JOINTS):
         p.add_slider_widget(partial(callback, (i,)),
@@ -127,14 +127,20 @@ def animate_robot_arm():
 
 
 def get_joint_to_end_effector_vectors(t_mats):
-    end_effector_vectors = []
+    joint_to_end_effector_vectors = []
     end_effector_t_mat = t_mats[-1]
     for joint_idx in range(NUM_JOINTS):
         t_mat = t_mats[joint_idx]
         joint_to_end_effector_vector = np.subtract(
             end_effector_t_mat[:3, 3], t_mat[:3, 3])
-        end_effector_vectors.append(joint_to_end_effector_vector)
-    return end_effector_vectors
+        joint_to_end_effector_vectors.append(joint_to_end_effector_vector)
+    return joint_to_end_effector_vectors
+
+
+def draw_joint_to_end_effector_vector(plotter, t_mat, end_effector_pos):
+    points = np.array(
+        [t_mat[:3, 3], end_effector_pos])
+    draw_links(plotter, points)
 
 # Got the formula for the rotational component of the Jacobian from this website:
 # https://www.rosroboticslearning.com/jacobian
@@ -228,10 +234,10 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     plt.show()
 
 
-thetas_init = np.array([0, 0, 0, 0, 0, 0])
-desired_end_effector_pose = np.array([30, 0, 475, -math.pi, math.pi, -math.pi])
-find_joint_angles(thetas_init, desired_end_effector_pose)
-t_mats = get_t_mats(thetas_init)
-print(len(t_mats))
-for t_mat in t_mats:
-    print(t_mat)
+# thetas_init = np.array([0, 0, 0, 0, 0, 0])
+# desired_end_effector_pose = np.array([30, 0, 475, -math.pi, math.pi, -math.pi])
+# find_joint_angles(thetas_init, desired_end_effector_pose)
+# t_mats = get_t_mats(thetas_init)
+# print(len(t_mats))
+# for t_mat in t_mats:
+#     print(t_mat)
