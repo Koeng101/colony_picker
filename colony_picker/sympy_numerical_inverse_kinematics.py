@@ -5,10 +5,10 @@ import sympy as sp
 # AR2 Version 2.0 software executable files from
 # https://www.anninrobotics.com/downloads
 # parameters are the same between the AR2 and AR3
-alphas = [-(sp.pi/2), 0, 90, -(sp.pi/2), sp.pi/2, 0]
+alphas = [-(sp.pi/2), 0, sp.pi/2, -(sp.pi/2), sp.pi/2, 0]
 a_vals = [64.2, 305, 0, 0, 0, 0]
 d_vals = [169.77, 0, 0, -222.63, 0, -36.25]
-theta_offsets = [0, 0, -90, 0, 0, 180]
+theta_offsets = [0, -(sp.pi/2), 0, 0, 0, sp.pi]
 
 NUM_JOINTS = 6
 
@@ -42,13 +42,31 @@ def get_end_effector_t_mat():
                           a_vals[joint_idx],
                           alphas[joint_idx],
                           d_vals[joint_idx])
-        end_effector_t_mat = t_mat * end_effector_t_mat
-    return end_effector_t_mat
+        end_effector_t_mat = end_effector_t_mat * t_mat
+    return (end_effector_t_mat, thetas)
 
 
 def get_jacobian():
 
     return 0
+
+
+def get_translational_jacobian_components(theta_vals):
+    unevaluated_t_mat, theta_names = get_end_effector_t_mat()
+    end_effector_pos = unevaluated_t_mat[:3, 3]
+    jacobian = np.zeros((6, NUM_JOINTS))
+    theta_substitutions = []
+    for joint_idx in range(NUM_JOINTS):
+        theta_substitutions.append(
+            (theta_names[joint_idx], theta_vals[joint_idx]))
+    for axis_idx in range(3):
+        end_effector_component_equation = unevaluated_t_mat[axis_idx]
+        for joint_idx in range(NUM_JOINTS):
+            derivative = sp.diff(
+                end_effector_component_equation, theta_names[joint_idx])
+            jacobian[axis_idx, joint_idx] = derivative.subs(
+                theta_substitutions)
+    return jacobian
 
 
 def get_jacobian_pseudoinverse(jacobian):
@@ -61,6 +79,9 @@ def get_jacobian_pseudoinverse(jacobian):
 #     while error > 0.01:
 #         error = desired_end_effector_pose - current_end_effector_pose
 
+
 #         jacobian = get_jacobian()
 #         jacobian_pseudoinverse = get_jacobian_pseudoinverse(jacobian)
 #         thetas += np.matmul(jacobian_pseudoinverse, desired_end_effector_pose)
+thetas = np.zeros(NUM_JOINTS)
+print(get_translational_jacobian_components(thetas))
