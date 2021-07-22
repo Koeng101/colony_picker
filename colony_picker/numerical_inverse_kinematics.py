@@ -151,6 +151,10 @@ def draw_joint_to_end_effector_vector(plotter, t_mat, end_effector_pos):
 
 def get_jacobian(thetas):
     t_mats = get_t_mats(thetas)
+    print()
+    print("END EFFECTOR POS")
+    print(t_mats[-1][:3, 3])
+    print()
     end_effector_vectors = get_joint_to_end_effector_vectors(t_mats)
     jacobian = np.zeros((6, NUM_JOINTS))
     base_t_mat = np.identity(4)
