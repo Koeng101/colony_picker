@@ -152,8 +152,8 @@ def draw_joint_to_end_effector_vector(plotter, t_mat, end_effector_pos):
 def get_jacobian(thetas):
     t_mats = get_t_mats(thetas)
     print()
-    print("END EFFECTOR POS")
-    print(t_mats[-1][:3, 3])
+    print("END EFFECTOR T_MAT")
+    print(t_mats[-1])
     print()
     end_effector_vectors = get_joint_to_end_effector_vectors(t_mats)
     jacobian = np.zeros((6, NUM_JOINTS))
@@ -190,8 +190,16 @@ def get_jacobian(thetas):
 def get_end_effector_pose(thetas):
     t_mats = get_t_mats(thetas)
     end_effector_position = t_mats[-1][:3, 3]
+    print("END EFFECTOR POSITION: ")
+    print(end_effector_position)
     rot_mat = t_mats[-1][:3, :3]
+    print("END EFFECTOR ROT MAT: ")
+    print(rot_mat)
+    print()
     end_effector_rotation = get_euler_from_rot_mat(rot_mat)
+    print("END EFFECTOR ROTATION: ")
+    print(end_effector_rotation)
+    print()
     end_effector_pose = np.zeros(6)
     end_effector_pose[:3] = end_effector_position
     end_effector_pose[3:] = end_effector_rotation
@@ -244,7 +252,9 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
 
 np.set_printoptions(precision=1, suppress=True)
 thetas = np.zeros(6)
-print(get_jacobian(thetas))
+get_jacobian(thetas)
+print("END EFFECTOR POSE: ")
+print(get_end_effector_pose(thetas))
 
 # thetas_init = np.zeros(6)
 # desired_end_effector_pose = np.array([323.08*(math.pi/180), 0, 474.77 *
