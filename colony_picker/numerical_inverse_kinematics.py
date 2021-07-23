@@ -48,10 +48,13 @@ def get_t_mats(thetas):
 
 
 def get_euler_from_rot_mat(rot_mat):
-    return np.array([math.atan2(rot_mat[2, 1], rot_mat[2, 2]),
-                     math.atan2(-rot_mat[2, 0], math.sqrt(np.square(rot_mat[2, 1])
-                                                          + np.square(rot_mat[2, 2]))),
-                     math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
+    from scipy.spatial.transform import Rotation
+    r = Rotation.from_matrix(rot_mat)
+    return r.as_euler("ZYX")
+    # return np.array([math.atan2(rot_mat[2, 1], rot_mat[2, 2]),
+    #                  math.atan2(-rot_mat[2, 0], math.sqrt(np.square(rot_mat[2, 1])
+    #                                                       + np.square(rot_mat[2, 2]))),
+    #                  math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
 
 
 def draw_coordinate_system(plotter, t_mat, base=False, name=""):
@@ -242,18 +245,18 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     plt.show()
 
 
-np.set_printoptions(precision=2, suppress=True)
-thetas = np.ones(6)
-thetas[5] = math.pi
-thetas[1] = math.pi/2
-get_jacobian(thetas)
-print("Jacobian: ")
-print(get_jacobian(thetas))
+# np.set_printoptions(precision=2, suppress=True)
+# thetas = np.ones(6)
+# thetas[5] = math.pi
+# thetas[1] = math.pi/2
+# get_jacobian(thetas)
+# print("Jacobian: ")
+# print(get_jacobian(thetas))
 
-# thetas_init = np.zeros(NUM_JOINTS)
-# desired_end_effector_pose = np.array(
-#     [564.4182487, 20.46563405, 63.83689114, 71.95398308*(math.pi/180), 6.263122866*(math.pi/180), 105.7251901*(math.pi/180)])
-# find_joint_angles(thetas_init, desired_end_effector_pose)
+thetas_init = np.zeros(NUM_JOINTS)
+desired_end_effector_pose = np.array(
+    [564.4182487, 20.46563405, 63.83689114, 71.95398308*(math.pi/180), 6.263122866*(math.pi/180), 105.7251901*(math.pi/180)])
+find_joint_angles(thetas_init, desired_end_effector_pose)
 
 # t_mats = get_t_mats(thetas_init)
 # print(len(t_mats))
