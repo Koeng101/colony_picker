@@ -31,11 +31,11 @@ def get_relative_t_mat(theta, theta_offset, a, alpha, d):
 
 def get_theta_names():
     theta_names_str = ""
-    for joint_idx in range(0, NUM_JOINTS):
+    for joint_idx in range(NUM_JOINTS):
         if joint_idx == NUM_JOINTS - 1:
             theta_names_str += f"theta_{joint_idx}"
         else:
-            theta_names_str += f"theta_{joint_idx + 1}, "
+            theta_names_str += f"theta_{joint_idx}, "
     theta_names = sp.symbols(theta_names_str)
     return theta_names
 
@@ -43,7 +43,7 @@ def get_theta_names():
 def get_unevaluated_t_mats(theta_names):
     accumulator_t_mat = sp.eye(4)
     unevaluated_t_mats = []
-    for joint_idx in range(0, NUM_JOINTS):
+    for joint_idx in range(NUM_JOINTS):
         unevaluated_t_mat = get_relative_t_mat(theta_names[joint_idx],
                                                theta_offsets[joint_idx],
                                                a_vals[joint_idx],
@@ -68,6 +68,15 @@ def get_unevaluated_jacobian(theta_names, unevaluated_t_mats):
         for joint_idx in range(NUM_JOINTS):
             unevaluated_jacobian[axis_idx, joint_idx] = sp.diff(
                 end_effector_position_expression, theta_names[joint_idx])
+    print("THETA 5 UNEVALUATED: ")
+    print(unevaluated_jacobian[:3, 4])
+    print()
+    print("THETA 6 UNEVALUATED: ")
+    print(unevaluated_jacobian[:3, 5])
+    print()
+    print("ARE THEY EQUAL?")
+    print(unevaluated_jacobian[:3, 4] == unevaluated_jacobian[:3, 5])
+    print()
     return unevaluated_jacobian
 
 
