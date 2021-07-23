@@ -84,11 +84,25 @@ def get_jacobian(theta_substitutions, unevaluated_jacobian):
     return np.array(jacobian).astype(np.float64)
 
 
+# def get_euler_from_rot_mat(rot_mat):
+#     return np.array([math.atan2(rot_mat[2, 1], rot_mat[2, 2]),
+#                      math.atan2(-rot_mat[2, 0], math.sqrt(np.square(rot_mat[2, 1])
+#                                                           + np.square(rot_mat[2, 2]))),
+#                      math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
+
 def get_euler_from_rot_mat(rot_mat):
-    return np.array([math.atan2(rot_mat[2, 1], rot_mat[2, 2]),
-                     math.atan2(-rot_mat[2, 0], math.sqrt(np.square(rot_mat[2, 1])
-                                                          + np.square(rot_mat[2, 2]))),
-                     math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
+    sy = math.sqrt(rot_mat[0, 0] * rot_mat[0, 0] +
+                   rot_mat[1, 0] * rot_mat[1, 0])
+    singular = sy < 1e-6
+    if not singular:
+        x = math.atan2(rot_mat[2, 1], rot_mat[2, 2])
+        y = math.atan2(-rot_mat[2, 0], sy)
+        z = math.atan2(rot_mat[1, 0], rot_mat[0, 0])
+    else:
+        x = math.atan2(-rot_mat[1, 2], rot_mat[1, 1])
+        y = math.atan2(-rot_mat[2, 0], sy)
+        z = 0
+    return np.array([x, y, z])
 
 
 def get_end_effector_pose(theta_substitutions, unevaluated_t_mats):
@@ -153,21 +167,24 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     plt.show()
 
 
-thetas_init = np.zeros(NUM_JOINTS)
-desired_end_effector_pose = np.array(
-    [564.4182487, 20.46563405, 63.83689114, 105.7251901*(math.pi/180), 6.263122866*(math.pi/180), 71.95398308*(math.pi/180)])
-find_joint_angles(thetas_init, desired_end_effector_pose)
+# thetas_init = np.zeros(NUM_JOINTS)
+# desired_end_effector_pose = np.array(
+#     [564.4182487, 20.46563405, 63.83689114, 71.95398308*(math.pi/180), 6.263122866*(math.pi/180), 105.7251901*(math.pi/180)])
+# find_joint_angles(thetas_init, desired_end_effector_pose)
 
-# theta_vals = np.zeros(NUM_JOINTS)
-# theta_names = get_theta_names()
-# unevaluated_t_mats = get_unevaluated_t_mats(theta_names)
-# unevaluated_jacobian = get_unevaluated_jacobian(
-#     theta_names, unevaluated_t_mats)
-# theta_substitutions = get_theta_substitutions(theta_names, theta_vals)
-# jacobian = get_jacobian(theta_substitutions, unevaluated_jacobian)
-# print("SYMPY JACOBIAN: ")
-# print(jacobian)
-# print()
+theta_vals = np.ones(NUM_JOINTS)
+theta_vals[5] = math.pi
+theta_vals[1] = math.pi/2
+theta_names = get_theta_names()
+unevaluated_t_mats = get_unevaluated_t_mats(theta_names)
+unevaluated_jacobian = get_unevaluated_jacobian(
+    theta_names, unevaluated_t_mats)
+theta_substitutions = get_theta_substitutions(theta_names, theta_vals)
+jacobian = get_jacobian(theta_substitutions, unevaluated_jacobian)
+np.set_printoptions(precision=2, suppress=True)
+print("SYMPY JACOBIAN: ")
+print(jacobian)
+print()
 # end_effector_pose = get_end_effector_pose(
 #     theta_substitutions, unevaluated_t_mats)
 # print("SYMPY END EFFECTOR POSE: ")

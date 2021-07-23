@@ -125,7 +125,7 @@ def animate_robot_arm():
                             title=f"Theta {i}", event_type="always")
     p.show()
 
-
+# figured out which joint to end effector vectors to use from this link: https://automaticaddison.com/the-ultimate-guide-to-jacobian-matrices-for-robotics/
 def get_joint_to_end_effector_vectors(t_mats):
     joint_to_end_effector_vectors = []
     end_effector_t_mat = t_mats[-1]
@@ -151,22 +151,22 @@ def draw_joint_to_end_effector_vector(plotter, t_mat, end_effector_pos):
 
 def get_jacobian(thetas):
     t_mats = get_t_mats(thetas)
-    print()
-    print("END EFFECTOR T_MAT")
-    print(t_mats[-1])
-    print()
-    end_effector_vectors = get_joint_to_end_effector_vectors(t_mats)
     jacobian = np.zeros((6, NUM_JOINTS))
     base_t_mat = np.identity(4)
     t_mats.insert(0, base_t_mat)
+    end_effector_vectors = get_joint_to_end_effector_vectors(t_mats)
     for joint_idx in range(NUM_JOINTS):
         t_mat = t_mats[joint_idx]
         rot_axis = t_mat[:3, 2]
+        # print(f"END EFFECTOR VECTOR JOINT {joint_idx}->EE: ")
+        # print(end_effector_vectors[joint_idx])
+        # print()
+        # print(f"rot axis {joint_idx}")
+        # print(rot_axis)
+        # print()
         jacobian[:3, joint_idx] = np.cross(
             rot_axis, end_effector_vectors[joint_idx])
         jacobian[3:, joint_idx] = rot_axis
-    print("JACOBIAN:")
-    print(jacobian)
     return jacobian
 
 # used this source for this formula: https://stackoverflow.com/questions/15022630/how-to-calculate-the-angle-from-rotation-matrix
@@ -190,16 +190,8 @@ def get_jacobian(thetas):
 def get_end_effector_pose(thetas):
     t_mats = get_t_mats(thetas)
     end_effector_position = t_mats[-1][:3, 3]
-    print("END EFFECTOR POSITION: ")
-    print(end_effector_position)
     rot_mat = t_mats[-1][:3, :3]
-    print("END EFFECTOR ROT MAT: ")
-    print(rot_mat)
-    print()
     end_effector_rotation = get_euler_from_rot_mat(rot_mat)
-    print("END EFFECTOR ROTATION: ")
-    print(end_effector_rotation)
-    print()
     end_effector_pose = np.zeros(6)
     end_effector_pose[:3] = end_effector_position
     end_effector_pose[3:] = end_effector_rotation
@@ -250,16 +242,19 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     plt.show()
 
 
-np.set_printoptions(precision=1, suppress=True)
-thetas = np.zeros(6)
+np.set_printoptions(precision=2, suppress=True)
+thetas = np.ones(6)
+thetas[5] = math.pi
+thetas[1] = math.pi/2
 get_jacobian(thetas)
-print("END EFFECTOR POSE: ")
-print(get_end_effector_pose(thetas))
+print("Jacobian: ")
+print(get_jacobian(thetas))
 
-# thetas_init = np.zeros(6)
-# desired_end_effector_pose = np.array([323.08*(math.pi/180), 0, 474.77 *
-#                                       (math.pi/180), -math.pi/2, math.pi/2, -math.pi/2])
+# thetas_init = np.zeros(NUM_JOINTS)
+# desired_end_effector_pose = np.array(
+#     [564.4182487, 20.46563405, 63.83689114, 71.95398308*(math.pi/180), 6.263122866*(math.pi/180), 105.7251901*(math.pi/180)])
 # find_joint_angles(thetas_init, desired_end_effector_pose)
+
 # t_mats = get_t_mats(thetas_init)
 # print(len(t_mats))
 # for t_mat in t_mats:
