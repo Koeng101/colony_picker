@@ -224,17 +224,42 @@ def get_directional_error(desired_end_effector_pose, current_end_effector_pose):
     return directional_error
 
 
+def joint_angles_to_euler(joint_angles, radians=True):
+    half_circle = math.pi
+    if not radians:
+        half_circle = 180
+    euler_joint_angles = np.zeros(len(joint_angles))
+    for joint_angle, joint_idx in zip(joint_angles, range(len(joint_angles))):
+        if abs(joint_angle) > half_circle:
+            remainder = abs(joint_angle) % half_circle
+            dividend = (abs(joint_angle) - remainder)/half_circle
+            if joint_angle < 0:
+                if (dividend % 2) != 0:
+                    euler_joint_angles[joint_idx] = half_circle - remainder
+                else:
+                    euler_joint_angles[joint_idx] = -remainder
+            else:
+                if (dividend % 2) != 0:
+                    euler_joint_angles[joint_idx] = -(half_circle - remainder)
+                else:
+                    euler_joint_angles[joint_idx] = remainder
+        else:
+            euler_joint_angles[joint_idx] = joint_angle
+    return euler_joint_angles
+
+
 def find_joint_angles(current_thetas, desired_end_effector_pose):
     error = np.ones(6)
     iters = 0
     desired_error = np.zeros(6)
-    desired_error += 1e-3
+    desired_error += 1e-5
 
     errors = []
     for end_effector_idx in range(6):
         errors.append([])
 
     while np.any(np.greater(error, desired_error)) and iters < 10000:
+
         current_end_effector_pose = get_end_effector_pose(current_thetas)
 
         error_directional = get_directional_error(
@@ -256,7 +281,9 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
                              0.01*error_directional)
         current_thetas = np.add(current_thetas, d_thetas)
         iters += 1
-    # current_thetas = current_thetas*(180/math.pi)
+    current_thetas = joint_angles_to_euler(current_thetas)
+    current_thetas = current_thetas*(180/math.pi)
+    current_end_effector_pose[3:] = np.rad2deg(current_end_effector_pose[3:])
     print(f"*************************")
     print(f"final NUMBER OF ITERATIONS: {iters}")
     print(f"final ERROR: {error}")
@@ -282,7 +309,7 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
 
 thetas_init = np.zeros(NUM_JOINTS)
 desired_end_effector_pose = np.array(
-    [564.4182487, 20.46563405, 63.83689114, 71.95398308*(math.pi/180), 6.263122866*(math.pi/180), 105.7251901*(math.pi/180)])
+    [2, 3, 4, 5*math.pi/180, 6*math.pi/180, 7*math.pi/180])
 find_joint_angles(thetas_init, desired_end_effector_pose)
 
 # t_mats = get_t_mats(thetas_init)

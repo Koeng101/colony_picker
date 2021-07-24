@@ -48,6 +48,17 @@ class test_inverse_kinematics(unittest.TestCase):
             self.assertTrue(np.isclose(get_shortest_angle_to_target_in_degrees(
                 source_angle, target_angle), -shortest_angle))
 
+    def test_joint_angles_to_euler(self):
+        test_cases = [(7, 7), (367, 7), (540, -180),
+                      (-75, -75), (-360, 0), (-367, -7),
+                      (-460, -100)]
+        for test_case in test_cases:
+            joint_angle, euler_angle = test_case
+            joint_angle_arr = np.array([joint_angle])
+            euler_angle_arr = np.array([euler_angle])
+            self.assertTrue(joint_angles_to_euler(
+                joint_angle_arr, radians=False) == euler_angle_arr)
+
 
 if __name__ == "__main__":
     unittest.main()
