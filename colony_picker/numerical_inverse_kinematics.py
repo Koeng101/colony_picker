@@ -10,7 +10,8 @@ import pyvista as pv
 alphas = [-(math.pi/2), 0, math.pi/2, -(math.pi/2), math.pi/2, 0]
 a_vals = [64.2, 305, 0, 0, 0, 0]
 d_vals = [169.77, 0, 0, -222.63, 0, -36.25]
-theta_offsets = [0, -(math.pi/2), 0, 0, 0, math.pi]
+theta_offsets = np.zeros(6)
+theta_offsets = [0, 0, -math.pi/2, 0, 0, math.pi]
 
 NUM_JOINTS = 6
 
@@ -178,8 +179,30 @@ def get_jacobian(thetas):
 def get_euler_from_rot_mat(rot_mat):
     from scipy.spatial.transform import Rotation
     r = Rotation.from_matrix(rot_mat)
-    return r.as_euler("XYZ")
-    # return np.array([math.atan2(rot_mat[2, 1], rot_mat[2, 2]),
+    all_tait_bryan = [
+        "xyx",
+        "xzx",
+        "yxy",
+        "yzy",
+        "zxz",
+        "zyz",
+        "xyx".upper(),
+        "xzx".upper(),
+        "yxy".upper(),
+        "yzy".upper(),
+        "zxz".upper(),
+        "zyz".upper(),
+    ]
+    # for tb in all_tait_bryan:
+    #     print(r.as_euler(tb))
+    # return r.as_euler("ZXZ")
+
+    r_y = np.arctan2(-rot_mat[2, 0],
+                     np.sqrt(rot_mat[0, 0]**2 + rot_mat[1, 0]**2))
+    r_x = np.arctan2(rot_mat[2, 1]/r_y, rot_mat[2, 0]/r_y)
+    r_z = np.arctan2(rot_mat[1, 0]/r_y, rot_mat[0, 0, ]/r_y)
+    return np.array([r_x, r_y, r_z])
+    # return np.array([math.atan2(rot_mat[2, 1]/np.cos(), rot_mat[2, 2]),
     #                  math.atan2(-rot_mat[2, 0], math.sqrt(np.square(rot_mat[2, 1])
     #                                                       + np.square(rot_mat[2, 2]))),
     #                  math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
@@ -299,20 +322,46 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     plt.show()
 
 
-# np.set_printoptions(precision=2, suppress=True)
-# thetas = np.ones(6)
-# thetas[5] = math.pi
-# thetas[1] = math.pi/2
-# get_jacobian(thetas)
-# print("Jacobian: ")
-# print(get_jacobian(thetas))
+if __name__ == "__main__":
+    # np.set_printoptions(precision=2, suppress=True)
+    # thetas = np.ones(6)
+    # thetas[5] = math.pi
+    # thetas[1] = math.pi/2
+    # get_jacobian(thetas)
+    # print("Jacobian: ")
+    # print(get_jacobian(thetas))
 
-thetas_init = np.zeros(NUM_JOINTS)
-desired_end_effector_pose = np.array(
-    [2, 3, 4, 5*math.pi/180, 6*math.pi/180, 7*math.pi/180])
-find_joint_angles(thetas_init, desired_end_effector_pose)
+    thetas_init = np.zeros(NUM_JOINTS)
+    # thetas_init = np.array([0.0001745329252,
+    #                         -1.570796327,
+    #                         0,
+    #                         0.0001745329252,
+    #                         0.0001745329252,
+    #                         3.141767187])
+    # print(thetas_init)
+    # t_mats = get_t_mats(thetas_init)
+    # print(len(t_mats))
+    # for t_mat in t_mats:
+    #     print(t_mat)
 
-# t_mats = get_t_mats(thetas_init)
-# print(len(t_mats))
-# for t_mat in t_mats:
-#     print(t_mat)
+    thetas = np.array([-64.20382166,
+                       -9.74522293,
+                       21.49681529,
+                       -7.796178344,
+                       -50.78980892,
+                       -23.44585987])*(math.pi/180)
+    # thetas_init = thetas
+    desired_end_effector_pose = np.array(
+        [262.4007932,
+         -551.6498756,
+         198.6311895,
+         -123.2191951*math.pi/180,
+         51.47713754*math.pi/180,
+         -18.07547217*math.pi/180])
+
+    # find_joint_angles(thetas_init, desired_end_effector_pose)
+    t_mats = get_t_mats(thetas)
+    # print("T_MATS: ")
+    # for t_mat in t_mats:
+    #     print(t_mat)
+    print(get_euler_from_rot_mat(t_mats[-1][:3, :3]))

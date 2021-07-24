@@ -181,15 +181,28 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
 #     [564.4182487, 20.46563405, 63.83689114, 71.95398308*(math.pi/180), 6.263122866*(math.pi/180), 105.7251901*(math.pi/180)])
 # find_joint_angles(thetas_init, desired_end_effector_pose)
 
-theta_vals = np.ones(NUM_JOINTS)
-theta_vals[5] = math.pi
-theta_vals[1] = math.pi/2
+theta_vals = np.array([-1.12056808,
+                            - 0.1700862265,
+                            -1.195606121,
+                            -0.1360689812,
+                            -0.8864493921,
+                            2.732385203])
+
 theta_names = get_theta_names()
 unevaluated_t_mats = get_unevaluated_t_mats(theta_names)
 unevaluated_jacobian = get_unevaluated_jacobian(
     theta_names, unevaluated_t_mats)
 theta_substitutions = get_theta_substitutions(theta_names, theta_vals)
 jacobian = get_jacobian(theta_substitutions, unevaluated_jacobian)
+t_mats_list = []
+for t_mat, t_mat_idx in zip(unevaluated_t_mats, range(len(unevaluated_t_mats))):
+    new_t_mat = unevaluated_t_mats[t_mat_idx].subs(theta_substitutions)
+    new_t_mat = np.array(new_t_mat).astype(np.float64)
+    t_mats_list.append(new_t_mat)
+print("SYMPY T MATS:")
+for t_mat in t_mats_list:
+    print(t_mat)
+    print()
 np.set_printoptions(precision=2, suppress=True)
 print("SYMPY JACOBIAN: ")
 print(jacobian)

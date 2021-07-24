@@ -6,6 +6,7 @@ import numpy as np
 import math
 import matplotlib
 import pyvista
+import quaternion
 from colony_picker.numerical_inverse_kinematics import*
 
 
@@ -58,6 +59,24 @@ class test_inverse_kinematics(unittest.TestCase):
             euler_angle_arr = np.array([euler_angle])
             self.assertTrue(joint_angles_to_euler(
                 joint_angle_arr, radians=False) == euler_angle_arr)
+    # def test_find_joint_angles(self):
+
+    def test_directional_error(self):
+        pos = np.zeros((30, 3))
+        angs = np.linspace(0, 4*np.pi, len(pos))
+        euler_angles = np.zeros((len(pos), 3))
+        euler_angles[:, 0] = angs
+
+        de_x = []
+        for ea in euler_angles:
+            curr_pose = np.zeros(6)
+            des_pose = np.zeros(6)
+            des_pose[3:] = ea
+            de = get_directional_error(curr_pose, des_pose)
+            de_x.append(np.abs(de[3]))
+
+        plt.plot(angs, de_x)
+        plt.show()
 
 
 if __name__ == "__main__":
