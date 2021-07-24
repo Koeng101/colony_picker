@@ -29,8 +29,24 @@ class test_inverse_kinematics(unittest.TestCase):
                 self.assertTrue(not np.array_equal(
                     t_mats[t_mat_idx_1], t_mats[t_mat_idx_2]))
 
+    @unittest.skip("No reason")
     def test_animate_plot(self):
         animate_robot_arm()
+
+    def test_get_shortest_angle_to_target(self):
+        test_cases = [(-30, 30, -60), (-30, 150, -180), (-30, -150, 120),
+                      (-30, -50, 20), (30, 150, -120), (30, -150, 180),
+                      (30, 50, -20), (150, -150, -60), (150, 170, -20),
+                      (-170, -150, -20)]
+        for test_case in test_cases:
+
+            target_angle, source_angle, shortest_angle = test_case
+
+            self.assertTrue(np.isclose(get_shortest_angle_to_target_in_degrees(
+                target_angle, source_angle), shortest_angle))
+
+            self.assertTrue(np.isclose(get_shortest_angle_to_target_in_degrees(
+                source_angle, target_angle), -shortest_angle))
 
 
 if __name__ == "__main__":

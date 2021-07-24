@@ -47,16 +47,6 @@ def get_t_mats(thetas):
     return t_mats
 
 
-def get_euler_from_rot_mat(rot_mat):
-    from scipy.spatial.transform import Rotation
-    r = Rotation.from_matrix(rot_mat)
-    return r.as_euler("ZYX")
-    # return np.array([math.atan2(rot_mat[2, 1], rot_mat[2, 2]),
-    #                  math.atan2(-rot_mat[2, 0], math.sqrt(np.square(rot_mat[2, 1])
-    #                                                       + np.square(rot_mat[2, 2]))),
-    #                  math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
-
-
 def draw_coordinate_system(plotter, t_mat, base=False, name=""):
     colors = ["red", "green", "blue"]
     position = t_mat[:3, 3]
@@ -129,6 +119,8 @@ def animate_robot_arm():
     p.show()
 
 # figured out which joint to end effector vectors to use from this link: https://automaticaddison.com/the-ultimate-guide-to-jacobian-matrices-for-robotics/
+
+
 def get_joint_to_end_effector_vectors(t_mats):
     joint_to_end_effector_vectors = []
     end_effector_t_mat = t_mats[-1]
@@ -161,12 +153,6 @@ def get_jacobian(thetas):
     for joint_idx in range(NUM_JOINTS):
         t_mat = t_mats[joint_idx]
         rot_axis = t_mat[:3, 2]
-        # print(f"END EFFECTOR VECTOR JOINT {joint_idx}->EE: ")
-        # print(end_effector_vectors[joint_idx])
-        # print()
-        # print(f"rot axis {joint_idx}")
-        # print(rot_axis)
-        # print()
         jacobian[:3, joint_idx] = np.cross(
             rot_axis, end_effector_vectors[joint_idx])
         jacobian[3:, joint_idx] = rot_axis
@@ -189,6 +175,15 @@ def get_jacobian(thetas):
 #         z = 0
 #     return np.array([x, y, z])
 
+def get_euler_from_rot_mat(rot_mat):
+    from scipy.spatial.transform import Rotation
+    r = Rotation.from_matrix(rot_mat)
+    return r.as_euler("XYZ")
+    # return np.array([math.atan2(rot_mat[2, 1], rot_mat[2, 2]),
+    #                  math.atan2(-rot_mat[2, 0], math.sqrt(np.square(rot_mat[2, 1])
+    #                                                       + np.square(rot_mat[2, 2]))),
+    #                  math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
+
 
 def get_end_effector_pose(thetas):
     t_mats = get_t_mats(thetas)
@@ -201,10 +196,39 @@ def get_end_effector_pose(thetas):
     return end_effector_pose
 
 
+# got this formula from here: https://stackoverflow.com/questions/1878907/how-can-i-find-the-difference-between-two-angles
+def get_shortest_angle_to_target_in_radians(target_angle, source_angle):
+    # returns directional angle
+    a = target_angle - source_angle
+    if a > math.pi:
+        return a - 2*math.pi
+    elif a < -math.pi:
+        return a + 2*math.pi
+    else:
+        return a
+
+
+def get_shortest_angle_to_target_in_degrees(target_angle, source_angle):
+    target_angle = target_angle*(math.pi/180)
+    source_angle = source_angle*(math.pi/180)
+    return get_shortest_angle_to_target_in_radians(target_angle, source_angle)*(180/math.pi)
+
+
+def get_directional_error(desired_end_effector_pose, current_end_effector_pose):
+    directional_error = np.subtract(
+        desired_end_effector_pose, current_end_effector_pose)
+    for axis_idx in range(3):
+        directional_rotational_error = get_shortest_angle_to_target_in_radians(
+            desired_end_effector_pose[3 + axis_idx], current_end_effector_pose[3 + axis_idx])
+        directional_error[3 + axis_idx] = directional_rotational_error
+    return directional_error
+
+
 def find_joint_angles(current_thetas, desired_end_effector_pose):
     error = np.ones(6)
     iters = 0
     desired_error = np.zeros(6)
+    desired_error += 1e-3
 
     errors = []
     for end_effector_idx in range(6):
@@ -213,7 +237,7 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     while np.any(np.greater(error, desired_error)) and iters < 10000:
         current_end_effector_pose = get_end_effector_pose(current_thetas)
 
-        error_directional = np.subtract(
+        error_directional = get_directional_error(
             desired_end_effector_pose, current_end_effector_pose)
         error = np.absolute(error_directional)
         # print(f"=======ITER {iters}=======")
@@ -229,10 +253,10 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
         jacobian = get_jacobian(current_thetas)
         jacobian_generalized_inverse = np.linalg.pinv(jacobian)
         d_thetas = np.matmul(jacobian_generalized_inverse,
-                             0.001*error_directional)
+                             0.01*error_directional)
         current_thetas = np.add(current_thetas, d_thetas)
         iters += 1
-    current_thetas = current_thetas*(180/math.pi)
+    # current_thetas = current_thetas*(180/math.pi)
     print(f"*************************")
     print(f"final NUMBER OF ITERATIONS: {iters}")
     print(f"final ERROR: {error}")
@@ -240,8 +264,11 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     print(f"final JOINT ANGLES: {current_thetas}")
     print(f"*************************")
 
+    labels = ["x", "y", "z", "x_rot", "y_rot", "z_rot"]
     for end_effector_idx in range(6):
-        plt.plot(list(range(0, iters)), errors[end_effector_idx])
+        plt.plot(list(range(iters)),
+                 errors[end_effector_idx], label=labels[end_effector_idx])
+    plt.legend()
     plt.show()
 
 
