@@ -32,7 +32,7 @@ class test_inverse_kinematics(unittest.TestCase):
 
     @unittest.skip("No reason")
     def test_animate_plot(self):
-        animate_robot_arm()
+        animate_forward_kinematics()
 
     def test_get_shortest_angle_to_target(self):
         test_cases = [(-30, 30, -60), (-30, 150, -180), (-30, -150, 120),

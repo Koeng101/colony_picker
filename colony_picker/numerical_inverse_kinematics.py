@@ -3,6 +3,7 @@ import math
 import matplotlib.pyplot as plt
 import pyvista as pv
 from scipy.spatial.transform import Rotation
+from functools import partial
 
 # Denavit-Hartenberg Parameters of AR3 provided by
 # AR2 Version 2.0 software executable files from
@@ -95,28 +96,6 @@ def display_robot_arm(t_mats):
     plotter.slider
     plotter.show()
 
-
-def animate_robot_arm():
-    from functools import partial
-    p = pv.Plotter()
-    draw_coordinate_system(p, np.eye(4), True)
-    thetas = np.zeros(6)
-
-    def callback(idx, theta):
-        thetas[idx] = theta
-        t_mats = get_t_mats(thetas)
-
-        for i, t_mat in enumerate(t_mats):
-            draw_coordinate_system(p, t_mat, name=f"theta_{i}")
-
-    for i in range(NUM_JOINTS):
-        p.add_slider_widget(partial(callback, (i,)),
-                            [-np.pi, np.pi], pointa=(0.7, 0.9-0.15*i),
-                            pointb=(0.95, 0.9-0.15*i),
-                            title=f"Theta {i}", event_type="always")
-    # for j in range(6):
-
-    p.show()
 
 # figured out which joint to end effector vectors to use from this link: https://automaticaddison.com/the-ultimate-guide-to-jacobian-matrices-for-robotics/
 
@@ -246,22 +225,94 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
                              0.01*error_directional)
         current_thetas = np.add(current_thetas, d_thetas)
         iters += 1
-    current_thetas = joint_angles_to_euler(current_thetas)
-    current_thetas = current_thetas*(180/math.pi)
-    current_end_effector_pose[3:] = np.rad2deg(current_end_effector_pose[3:])
-    print(f"*************************")
-    print(f"final NUMBER OF ITERATIONS: {iters}")
-    print(f"final ERROR: {error}")
-    print(f"final END EFFECTOR POSE: {current_end_effector_pose}")
-    print(f"final JOINT ANGLES: {current_thetas}")
-    print(f"*************************")
+    # current_end_effector_pose[3:] = np.rad2deg(current_end_effector_pose[3:])
+    # print(f"*************************")
+    # print(f"final NUMBER OF ITERATIONS: {iters}")
+    # print(f"final ERROR: {error}")
+    # print(f"final END EFFECTOR POSE: {current_end_effector_pose}")
+    # print(f"final JOINT ANGLES: {current_thetas}")
+    # print(f"*************************")
+    # labels = ["x", "y", "z", "x_rot", "y_rot", "z_rot"]
+    # for end_effector_idx in range(6):
+    #     plt.plot(list(range(iters)),
+    #              errors[end_effector_idx], label=labels[end_effector_idx])
+    # plt.legend()
+    # plt.show()
+    return current_thetas
 
-    labels = ["x", "y", "z", "x_rot", "y_rot", "z_rot"]
-    for end_effector_idx in range(6):
-        plt.plot(list(range(iters)),
-                 errors[end_effector_idx], label=labels[end_effector_idx])
-    plt.legend()
-    plt.show()
+
+def animate_inverse_kinematics_sphere():
+    p = pv.Plotter()
+    draw_coordinate_system(p, np.eye(4), base=True)
+    thetas_init = np.zeros(6)
+    desired_end_effector_pose = np.array(get_end_effector_pose(thetas_init))
+
+    def callback(desired_end_effector_position):
+        desired_end_effector_pose[:3] = desired_end_effector_position
+        thetas = find_joint_angles(thetas_init, desired_end_effector_pose)
+        t_mats = get_t_mats(thetas)
+        for i, t_mat in enumerate(t_mats):
+            if i == NUM_JOINTS - 1:
+                draw_coordinate_system(p, t_mat, name=f"theta{i}", base=True)
+            else:
+                draw_coordinate_system(p, t_mat, name=f"theta{i}")
+
+    p.add_sphere_widget(
+        callback, center=desired_end_effector_pose[:3], radius=10, color="#89cff0")
+    p.show()
+
+
+def animate_inverse_kinematics_sliders():
+    p = pv.Plotter()
+    draw_coordinate_system(p, np.eye(4), base=True)
+    thetas_init = np.zeros(6)
+    desired_end_effector_pose = np.array(get_end_effector_pose(thetas_init))
+
+    def callback(idx, desired_end_effector_pose_component):
+        desired_end_effector_pose[idx] = desired_end_effector_pose_component
+        print("DESIRED END EFFECTOR POSE")
+        print(desired_end_effector_pose)
+        thetas = find_joint_angles(thetas_init, desired_end_effector_pose)
+        t_mats = get_t_mats(thetas)
+        for i, t_mat in enumerate(t_mats):
+            if i == NUM_JOINTS - 1:
+                draw_coordinate_system(p, t_mat, name=f"theta{i}", base=True)
+            else:
+                draw_coordinate_system(p, t_mat, name=f"theta{i}")
+    end_effector_pose_labels = ["x", "y", "z", "x_rot", "y_rot", "z_rot"]
+    for i in range(6):
+        if i <= 2:
+            lower_bound = -700
+            upper_bound = -lower_bound
+        else:
+            lower_bound = -np.pi
+            upper_bound = -lower_bound
+        p.add_slider_widget(partial(callback, (i,)),
+                            [lower_bound, upper_bound], value=desired_end_effector_pose[i], pointa=(
+                                0.7, 0.9-0.15*i),
+                            pointb=(0.95, 0.9-0.15*i),
+                            title=end_effector_pose_labels[i], event_type="always")
+
+    p.show()
+
+
+def animate_forward_kinematics():
+    p = pv.Plotter()
+    draw_coordinate_system(p, np.eye(4), True)
+    thetas = np.zeros(6)
+
+    def callback(idx, theta):
+        thetas[idx] = theta
+        t_mats = get_t_mats(thetas)
+        for i, t_mat in enumerate(t_mats):
+            draw_coordinate_system(p, t_mat, name=f"theta_{i}")
+
+    for i in range(NUM_JOINTS):
+        p.add_slider_widget(partial(callback, (i,)),
+                            [-np.pi, np.pi], pointa=(0.7, 0.9-0.15*i),
+                            pointb=(0.95, 0.9-0.15*i),
+                            title=f"Theta {i}", event_type="always")
+    p.show()
 
 
 if __name__ == "__main__":
@@ -288,12 +339,15 @@ if __name__ == "__main__":
 
     # thetas = np.array([1, 2, 3, 4, 5, 6])*(math.pi/180)
     # thetas_init = thetas
-    desired_end_effector_pose = np.array(
-        [0, 0, 50, 0, 0, 0])
-
+    # desired_end_effector_pose = np.array(
+    #     [6.28080000e+02, -1.58518282e-14,  1.69770000e+02, -3.14159265e+00, 1.57079631e+00, 0.00000000e+00])
+    # thetas_init = np.zeros(6)
+    # print(find_joint_angles(np.zeros(6) + 1e-2,
+    #       get_end_effector_pose(np.zeros(6))))
     # thetas_init = [-1.12056808, -0.1700862265, -1.195606121, -0.1360689812, -0.8864493921, 2.732385203]
     # find_joint_angles(thetas_init, desired_end_effector_pose)
     # animate_robot_arm()
+    animate_inverse_kinematics_sphere()
     # t_mats = get_t_mats(thetas)
     # print("T_MATS: ")
     # for t_mat in t_mats:
