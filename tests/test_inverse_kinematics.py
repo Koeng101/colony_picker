@@ -30,6 +30,7 @@ class test_inverse_kinematics(unittest.TestCase):
                 self.assertTrue(not np.array_equal(
                     t_mats[t_mat_idx_1], t_mats[t_mat_idx_2]))
 
+    @unittest.skip("No reason")
     def test_animate_plot(self):
         animate_robot_arm()
 

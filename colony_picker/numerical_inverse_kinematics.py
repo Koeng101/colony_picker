@@ -105,18 +105,17 @@ def animate_robot_arm():
     def callback(idx, theta):
         thetas[idx] = theta
         t_mats = get_t_mats(thetas)
-        # end_effector_pos = t_mats[-1][:3, 3]
 
         for i, t_mat in enumerate(t_mats):
             draw_coordinate_system(p, t_mat, name=f"theta_{i}")
-            # if i != 5:
-            #     draw_joint_to_end_effector_vector(p, t_mat, end_effector_pos)
 
     for i in range(NUM_JOINTS):
         p.add_slider_widget(partial(callback, (i,)),
                             [-np.pi, np.pi], pointa=(0.7, 0.9-0.15*i),
                             pointb=(0.95, 0.9-0.15*i),
                             title=f"Theta {i}", event_type="always")
+    # for j in range(6):
+
     p.show()
 
 # figured out which joint to end effector vectors to use from this link: https://automaticaddison.com/the-ultimate-guide-to-jacobian-matrices-for-robotics/
@@ -203,29 +202,15 @@ def get_directional_error(desired_end_effector_pose, current_end_effector_pose):
         directional_error[3 + axis_idx] = directional_rotational_error
     return directional_error
 
+# confirmed formula using this: https://stackoverflow.com/questions/15927755/opposite-of-numpy-unwrap
+
 
 def joint_angles_to_euler(joint_angles, radians=True):
-    half_circle = math.pi
-    if not radians:
-        half_circle = 180
-    euler_joint_angles = np.zeros(len(joint_angles))
-    for joint_angle, joint_idx in zip(joint_angles, range(len(joint_angles))):
-        if abs(joint_angle) > half_circle:
-            remainder = abs(joint_angle) % half_circle
-            dividend = (abs(joint_angle) - remainder)/half_circle
-            if joint_angle < 0:
-                if (dividend % 2) != 0:
-                    euler_joint_angles[joint_idx] = half_circle - remainder
-                else:
-                    euler_joint_angles[joint_idx] = -remainder
-            else:
-                if (dividend % 2) != 0:
-                    euler_joint_angles[joint_idx] = -(half_circle - remainder)
-                else:
-                    euler_joint_angles[joint_idx] = remainder
-        else:
-            euler_joint_angles[joint_idx] = joint_angle
-    return euler_joint_angles
+    if radians:
+        period = np.pi
+    else:
+        period = 180
+    return (joint_angles + period) % (2 * period) - period
 
 
 def find_joint_angles(current_thetas, desired_end_effector_pose):
@@ -304,10 +289,10 @@ if __name__ == "__main__":
     # thetas = np.array([1, 2, 3, 4, 5, 6])*(math.pi/180)
     # thetas_init = thetas
     desired_end_effector_pose = np.array(
-        [0, 0, 0, 0, 0, 0])
+        [0, 0, 50, 0, 0, 0])
 
     # thetas_init = [-1.12056808, -0.1700862265, -1.195606121, -0.1360689812, -0.8864493921, 2.732385203]
-    find_joint_angles(thetas_init, desired_end_effector_pose)
+    # find_joint_angles(thetas_init, desired_end_effector_pose)
     # animate_robot_arm()
     # t_mats = get_t_mats(thetas)
     # print("T_MATS: ")
