@@ -2,6 +2,7 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 import pyvista as pv
+from scipy.spatial.transform import Rotation
 
 # Denavit-Hartenberg Parameters of AR3 provided by
 # AR2 Version 2.0 software executable files from
@@ -10,7 +11,6 @@ import pyvista as pv
 alphas = [-(math.pi/2), 0, math.pi/2, -(math.pi/2), math.pi/2, 0]
 a_vals = [64.2, 305, 0, 0, 0, 0]
 d_vals = [169.77, 0, 0, -222.63, 0, -36.25]
-theta_offsets = np.zeros(6)
 theta_offsets = [0, 0, -math.pi/2, 0, 0, math.pi]
 
 NUM_JOINTS = 6
@@ -159,66 +159,11 @@ def get_jacobian(thetas):
         jacobian[3:, joint_idx] = rot_axis
     return jacobian
 
-# used this source for this formula: https://stackoverflow.com/questions/15022630/how-to-calculate-the-angle-from-rotation-matrix
-
-
-# def get_euler_from_rot_mat(rot_mat):
-#     sy = math.sqrt(rot_mat[0, 0] * rot_mat[0, 0] +
-#                    rot_mat[1, 0] * rot_mat[1, 0])
-#     singular = sy < 1e-6
-#     if not singular:
-#         x = math.atan2(rot_mat[2, 1], rot_mat[2, 2])
-#         y = math.atan2(-rot_mat[2, 0], sy)
-#         z = math.atan2(rot_mat[1, 0], rot_mat[0, 0])
-#     else:
-#         x = math.atan2(-rot_mat[1, 2], rot_mat[1, 1])
-#         y = math.atan2(-rot_mat[2, 0], sy)
-#         z = 0
-#     return np.array([x, y, z])
 
 def get_euler_from_rot_mat(rot_mat):
-    from scipy.spatial.transform import Rotation
     r = Rotation.from_matrix(rot_mat)
-    all_tait_bryan = [
-        "xyz",
-        "xzy",
-        "xyx",
-        "xzx",
-        "yzx",
-        "yxz",
-        "yzy",
-        "yxy",
-        "zyx",
-        "zxy",
-        "zyz",
-        "zxz",
-        "xyz".upper(),
-        "xzy".upper(),
-        "xyx".upper(),
-        "xzx".upper(),
-        "yzx".upper(),
-        "yxz".upper(),
-        "yzy".upper(),
-        "yxy".upper(),
-        "zyx".upper(),
-        "zxy".upper(),
-        "zyz".upper(),
-        "zxz".upper()
-    ]
-    expected_euler = [-1.395457519, 1.745114494, -1.582076348]
-    for tb in all_tait_bryan:
-        print(r.as_euler(tb))
-        # print(np.array_equal(np.sort(r.as_euler(tb)), np.sort(expected_euler)))
-                
-                # return r.as_euler("ZXZ")
+    return r.as_euler("xyz")
 
-    # r_y = np.arctan2(np.sqrt(rot_mat[0, 2]**2 + rot_mat[1, 2]**2), -rot_mat[2, 2])
-    # r_x = np.arctan2(rot_mat[2, 0]/r_y, rot_mat[2, 1]/r_y)
-    # r_z = np.arctan2(rot_mat[0, 2]/r_y, rot_mat[1, 2]/r_y)
-    # final_euler = [r_x, r_y, r_z]
-    # if np.any(np.greater(np.abs(final_euler), math.pi)):
-    #     print([r_x, r_y, r_z])
-    # return np.array([r_x, r_y, r_z])
 
 def get_end_effector_pose(thetas):
     t_mats = get_t_mats(thetas)
@@ -343,7 +288,7 @@ if __name__ == "__main__":
     # print("Jacobian: ")
     # print(get_jacobian(thetas))
 
-    # thetas_init = np.zeros(NUM_JOINTS)
+    thetas_init = np.zeros(NUM_JOINTS)
     # thetas_init = np.array([0.0001745329252,
     #                         -1.570796327,
     #                         0,
@@ -356,17 +301,17 @@ if __name__ == "__main__":
     # for t_mat in t_mats:
     #     print(t_mat)
 
-    thetas = np.array([1, 2, 3, 4, 5, 6])*(math.pi/180)
+    # thetas = np.array([1, 2, 3, 4, 5, 6])*(math.pi/180)
     # thetas_init = thetas
-    # desired_end_effector_pose = np.array(
-    #     [1, 2, 3, 4*math.pi/180, 5*math.pi/180, 6*math.pi/180])
+    desired_end_effector_pose = np.array(
+        [0, 0, 0, 0, 0, 0])
 
     # thetas_init = [-1.12056808, -0.1700862265, -1.195606121, -0.1360689812, -0.8864493921, 2.732385203]
-    # find_joint_angles(thetas_init, desired_end_effector_pose)
+    find_joint_angles(thetas_init, desired_end_effector_pose)
+    # animate_robot_arm()
     # t_mats = get_t_mats(thetas)
     # print("T_MATS: ")
     # for t_mat in t_mats:
     #     print(t_mat)
     #     print()
     # print(get_end_effector_pose(thetas))
-    get_end_effector_pose(thetas)

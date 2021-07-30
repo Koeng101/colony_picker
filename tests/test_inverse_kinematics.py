@@ -30,7 +30,6 @@ class test_inverse_kinematics(unittest.TestCase):
                 self.assertTrue(not np.array_equal(
                     t_mats[t_mat_idx_1], t_mats[t_mat_idx_2]))
 
-    @unittest.skip("No reason")
     def test_animate_plot(self):
         animate_robot_arm()
 
@@ -61,6 +60,7 @@ class test_inverse_kinematics(unittest.TestCase):
                 joint_angle_arr, radians=False) == euler_angle_arr)
     # def test_find_joint_angles(self):
 
+    @unittest.skip("No reason")
     def test_directional_error(self):
         pos = np.zeros((30, 3))
         angs = np.linspace(0, 4*np.pi, len(pos))
