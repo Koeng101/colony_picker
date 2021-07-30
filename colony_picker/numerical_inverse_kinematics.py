@@ -74,27 +74,8 @@ def draw_links(plotter, joint_positions):
     cells[:, 2] = np.arange(1, len(joint_positions), dtype=np.int_)
     poly.lines = cells
     poly["scalars"] = np.arange(poly.n_points)
-    tube = poly.tube(radius=1)
-    plotter.add_mesh(tube, color="yellow")
-
-
-def display_robot_arm(t_mats):
-    plotter = pv.Plotter()
-    positions = np.zeros((NUM_JOINTS + 1, 3))
-    t_mat = np.identity(4)
-    draw_coordinate_system(plotter, t_mat, base=True)
-    positions[0, :3] = t_mat[:3, 3]
-    for joint_idx in range(NUM_JOINTS):
-        t_mat = t_mats[joint_idx]
-        draw_coordinate_system(plotter, t_mat)
-        positions[joint_idx, :3] = t_mat[:3, 3]
-    draw_links(plotter, positions)
-    poly = pv.PolyData(positions[1:])
-    poly["labels"] = [f"Joint {i}" for i in range(NUM_JOINTS)]
-    plotter.add_point_labels(
-        poly, "labels", point_size=10, font_size=16, always_visible=True)
-    plotter.slider
-    plotter.show()
+    tube = poly.tube(radius=10)
+    plotter.add_mesh(tube, color="yellow", name="robot skeleton", opacity=0.7)
 
 
 # figured out which joint to end effector vectors to use from this link: https://automaticaddison.com/the-ultimate-guide-to-jacobian-matrices-for-robotics/
@@ -222,7 +203,7 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
         jacobian = get_jacobian(current_thetas)
         jacobian_generalized_inverse = np.linalg.pinv(jacobian)
         d_thetas = np.matmul(jacobian_generalized_inverse,
-                             0.01*error_directional)
+                             0.02*error_directional)
         current_thetas = np.add(current_thetas, d_thetas)
         iters += 1
     # current_end_effector_pose[3:] = np.rad2deg(current_end_effector_pose[3:])
@@ -241,7 +222,28 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     return current_thetas
 
 
+def display_robot_arm(t_mats):
+    plotter = pv.Plotter()
+    positions = np.zeros((NUM_JOINTS + 1, 3))
+    t_mat = np.identity(4)
+    draw_coordinate_system(plotter, t_mat, base=True)
+    positions[0, :3] = t_mat[:3, 3]
+    for joint_idx in range(NUM_JOINTS):
+        t_mat = t_mats[joint_idx]
+        draw_coordinate_system(plotter, t_mat)
+        positions[joint_idx, :3] = t_mat[:3, 3]
+    draw_links(plotter, positions)
+    poly = pv.PolyData(positions[1:])
+    poly["labels"] = [f"Joint {i}" for i in range(NUM_JOINTS)]
+    plotter.add_point_labels(
+        poly, "labels", point_size=10, font_size=16, always_visible=True)
+    plotter.show()
+
+# def animate_inverse_kinematics_plane():
+
+
 def animate_inverse_kinematics_sphere():
+    positions = np.zeros((NUM_JOINTS + 1, 3))
     p = pv.Plotter()
     draw_coordinate_system(p, np.eye(4), base=True)
     thetas_init = np.zeros(6)
@@ -252,10 +254,12 @@ def animate_inverse_kinematics_sphere():
         thetas = find_joint_angles(thetas_init, desired_end_effector_pose)
         t_mats = get_t_mats(thetas)
         for i, t_mat in enumerate(t_mats):
+            positions[i + 1, :3] = t_mat[:3, 3]
             if i == NUM_JOINTS - 1:
                 draw_coordinate_system(p, t_mat, name=f"theta{i}", base=True)
             else:
                 draw_coordinate_system(p, t_mat, name=f"theta{i}")
+        draw_links(p, positions)
 
     p.add_sphere_widget(
         callback, center=desired_end_effector_pose[:3], radius=10, color="#89cff0")
@@ -348,6 +352,8 @@ if __name__ == "__main__":
     # find_joint_angles(thetas_init, desired_end_effector_pose)
     # animate_robot_arm()
     animate_inverse_kinematics_sphere()
+
+    # display_robot_arm(get_t_mats(np.zeros(6)))
     # t_mats = get_t_mats(thetas)
     # print("T_MATS: ")
     # for t_mat in t_mats:
