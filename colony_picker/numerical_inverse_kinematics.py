@@ -262,7 +262,7 @@ def animate_inverse_kinematics_sphere():
         draw_links(p, positions)
 
     p.add_sphere_widget(
-        callback, center=desired_end_effector_pose[:3], radius=10, color="#89cff0")
+        callback, center=desired_end_effector_pose[:3], radius=10, color="#00FF00")
     p.show()
 
 
