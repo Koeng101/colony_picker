@@ -75,7 +75,7 @@ def draw_links(plotter, joint_positions):
     poly.lines = cells
     poly["scalars"] = np.arange(poly.n_points)
     tube = poly.tube(radius=10)
-    plotter.add_mesh(tube, color="yellow", name="robot skeleton", opacity=0.7)
+    plotter.add_mesh(tube, color="black", name="robot skeleton", opacity=0.9)
 
 
 # figured out which joint to end effector vectors to use from this link: https://automaticaddison.com/the-ultimate-guide-to-jacobian-matrices-for-robotics/
@@ -249,9 +249,10 @@ def animate_inverse_kinematics_sphere():
     thetas_init = np.zeros(6)
     desired_end_effector_pose = np.array(get_end_effector_pose(thetas_init))
 
-    def callback(desired_end_effector_position):
-        desired_end_effector_pose[:3] = desired_end_effector_position
+    def callback(idx, desired_end_effector_param):
+        desired_end_effector_pose[idx] = desired_end_effector_param
         thetas = find_joint_angles(thetas_init, desired_end_effector_pose)
+        thetas_init[0:] = thetas
         t_mats = get_t_mats(thetas)
         for i, t_mat in enumerate(t_mats):
             positions[i + 1, :3] = t_mat[:3, 3]
@@ -262,7 +263,15 @@ def animate_inverse_kinematics_sphere():
         draw_links(p, positions)
 
     p.add_sphere_widget(
-        callback, center=desired_end_effector_pose[:3], radius=10, color="#00FF00")
+        partial(callback, range(0, 3)), center=desired_end_effector_pose[:3], radius=10, color="#00FF00")
+    end_effector_pose_labels = ["x_rot", "y_rot", "z_rot"]
+    for i in range(3):
+        p.add_slider_widget(partial(callback, i + 3),
+                            [-np.pi, np.pi], value=desired_end_effector_pose[i + 3], pointa=(
+            0.7, 0.9-0.15*i),
+            pointb=(0.95, 0.9-0.15*i),
+            title=end_effector_pose_labels[i], event_type="always")
+
     p.show()
 
 
@@ -319,6 +328,21 @@ def animate_forward_kinematics():
     p.show()
 
 
+def test_plane_widget():
+    p = pv.Plotter()
+    test_geom = pv.Sphere()
+    p.add_mesh(test_geom)
+
+    def callback(normal, origin):
+        print("NORMAL: ")
+        print(normal)
+        test_geom = pv.Sphere()
+        p.add_mesh(test_geom, name="sphere", opacity=0.5)
+
+    p.add_plane_widget(callback)
+    p.show()
+
+
 if __name__ == "__main__":
     # np.set_printoptions(precision=2, suppress=True)
     # thetas = np.ones(6)
@@ -352,6 +376,7 @@ if __name__ == "__main__":
     # find_joint_angles(thetas_init, desired_end_effector_pose)
     # animate_robot_arm()
     animate_inverse_kinematics_sphere()
+    # test_plane_widget()
 
     # display_robot_arm(get_t_mats(np.zeros(6)))
     # t_mats = get_t_mats(thetas)
