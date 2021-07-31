@@ -2,8 +2,10 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 import pyvista as pv
+from scipy.optimize import minimize
 from scipy.spatial.transform import Rotation
 from functools import partial
+import logging
 
 # Denavit-Hartenberg Parameters of AR3 provided by
 # AR2 Version 2.0 software executable files from
@@ -173,23 +175,73 @@ def joint_angles_to_euler(joint_angles, radians=True):
     return (joint_angles + period) % (2 * period) - period
 
 
+def objective_function(thetas, desired_end_effector_pose):
+    current_end_effector_pose = get_end_effector_pose(thetas)
+    error_vector = get_directional_error(
+        desired_end_effector_pose, current_end_effector_pose)
+
+    error = np.linalg.norm(error_vector)
+    return error
+
+
+def get_gradient(thetas, desired_end_effector_pose):
+    current_end_effector_pose = get_end_effector_pose(thetas)
+    error_vector = get_directional_error(
+        desired_end_effector_pose, current_end_effector_pose)
+    jacobian = get_jacobian(thetas)
+    jacobian_generalized_inverse = np.linalg.pinv(jacobian)
+    print(np.any(np.abs(error_vector) > 10))
+    d_thetas = -np.matmul(jacobian_generalized_inverse, error_vector)
+    return d_thetas
+
+
+def scipy_find_joint_angles(thetas_init, desired_end_effector_pose):
+
+    # error = objective_function(thetas_init.copy(), desired_end_effector_pose)
+    # thetas = thetas_init
+    # for i in range(100):
+    #     grad = get_gradient(thetas, desired_end_effector_pose)
+
+    #     thetas += grad * 0.000000000001
+    #     error = objective_function(thetas, desired_end_effector_pose)
+    res = minimize(objective_function, thetas_init,
+                   (desired_end_effector_pose,), method='CG', jac={'3-point'})
+    print(res)
+    return res.x
+
+
 def find_joint_angles(current_thetas, desired_end_effector_pose):
-    error = np.ones(6)
+    current_end_effector_pose = get_end_effector_pose(current_thetas)
+
+    error_directional = get_directional_error(
+        desired_end_effector_pose, current_end_effector_pose)
+
+    error = np.linalg.norm(error_directional)
     iters = 0
     desired_error = np.zeros(6)
     desired_error += 1e-5
+    step_decay_rate = 0.5
 
     errors = []
     for end_effector_idx in range(6):
         errors.append([])
 
-    while np.any(np.greater(error, desired_error)) and iters < 10000:
+    step_size = 1
+    last_thetas = current_thetas
+    while np.any(np.greater(error, desired_error)) and iters < 1000:
 
         current_end_effector_pose = get_end_effector_pose(current_thetas)
 
         error_directional = get_directional_error(
             desired_end_effector_pose, current_end_effector_pose)
-        error = np.absolute(error_directional)
+        new_error = np.linalg.norm(error_directional)
+        if new_error > error:
+            current_thetas = last_thetas
+            step_size *= step_decay_rate
+        else:
+            # step_size *= 1.1
+            last_thetas = current_thetas
+            error = new_error
         # print(f"=======ITER {iters}=======")
         # print(f"ERROR: {error_directional}")
         # print(f"CURRENT END EFFECTOR POSE: {current_end_effector_pose}")
@@ -202,17 +254,23 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
 
         jacobian = get_jacobian(current_thetas)
         jacobian_generalized_inverse = np.linalg.pinv(jacobian)
+
         d_thetas = np.matmul(jacobian_generalized_inverse,
-                             0.02*error_directional)
+                             step_size*error_directional)
         current_thetas = np.add(current_thetas, d_thetas)
+
         iters += 1
+    if np.any(np.greater(error, desired_error)):
+        print(iters)
+        logging.warning("Inverse kinematics did not converge")
+
     # current_end_effector_pose[3:] = np.rad2deg(current_end_effector_pose[3:])
-    # print(f"*************************")
-    # print(f"final NUMBER OF ITERATIONS: {iters}")
-    # print(f"final ERROR: {error}")
-    # print(f"final END EFFECTOR POSE: {current_end_effector_pose}")
-    # print(f"final JOINT ANGLES: {current_thetas}")
-    # print(f"*************************")
+    print(f"*************************")
+    print(f"final NUMBER OF ITERATIONS: {iters}")
+    print(f"final ERROR: {error}")
+    print(f"final END EFFECTOR POSE: {current_end_effector_pose}")
+    print(f"final JOINT ANGLES: {current_thetas}")
+    print(f"*************************")
     # labels = ["x", "y", "z", "x_rot", "y_rot", "z_rot"]
     # for end_effector_idx in range(6):
     #     plt.plot(list(range(iters)),
@@ -220,26 +278,6 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
     # plt.legend()
     # plt.show()
     return current_thetas
-
-
-def display_robot_arm(t_mats):
-    plotter = pv.Plotter()
-    positions = np.zeros((NUM_JOINTS + 1, 3))
-    t_mat = np.identity(4)
-    draw_coordinate_system(plotter, t_mat, base=True)
-    positions[0, :3] = t_mat[:3, 3]
-    for joint_idx in range(NUM_JOINTS):
-        t_mat = t_mats[joint_idx]
-        draw_coordinate_system(plotter, t_mat)
-        positions[joint_idx, :3] = t_mat[:3, 3]
-    draw_links(plotter, positions)
-    poly = pv.PolyData(positions[1:])
-    poly["labels"] = [f"Joint {i}" for i in range(NUM_JOINTS)]
-    plotter.add_point_labels(
-        poly, "labels", point_size=10, font_size=16, always_visible=True)
-    plotter.show()
-
-# def animate_inverse_kinematics_plane():
 
 
 def animate_inverse_kinematics_sphere():
@@ -251,8 +289,9 @@ def animate_inverse_kinematics_sphere():
 
     def callback(idx, desired_end_effector_param):
         desired_end_effector_pose[idx] = desired_end_effector_param
-        thetas = find_joint_angles(thetas_init, desired_end_effector_pose)
-        thetas_init[0:] = thetas
+        thetas = scipy_find_joint_angles(
+            thetas_init, desired_end_effector_pose)
+        thetas_init[:] = thetas
         t_mats = get_t_mats(thetas)
         for i, t_mat in enumerate(t_mats):
             positions[i + 1, :3] = t_mat[:3, 3]
@@ -263,14 +302,14 @@ def animate_inverse_kinematics_sphere():
         draw_links(p, positions)
 
     p.add_sphere_widget(
-        partial(callback, range(0, 3)), center=desired_end_effector_pose[:3], radius=10, color="#00FF00")
+        partial(callback, range(0, 3)), center=desired_end_effector_pose[:3], radius=10, color="#00FF00", test_callback=False)
     end_effector_pose_labels = ["x_rot", "y_rot", "z_rot"]
     for i in range(3):
         p.add_slider_widget(partial(callback, i + 3),
                             [-np.pi, np.pi], value=desired_end_effector_pose[i + 3], pointa=(
             0.7, 0.9-0.15*i),
             pointb=(0.95, 0.9-0.15*i),
-            title=end_effector_pose_labels[i], event_type="always")
+            title=end_effector_pose_labels[i], event_type="end")
 
     p.show()
 
@@ -283,8 +322,6 @@ def animate_inverse_kinematics_sliders():
 
     def callback(idx, desired_end_effector_pose_component):
         desired_end_effector_pose[idx] = desired_end_effector_pose_component
-        print("DESIRED END EFFECTOR POSE")
-        print(desired_end_effector_pose)
         thetas = find_joint_angles(thetas_init, desired_end_effector_pose)
         t_mats = get_t_mats(thetas)
         for i, t_mat in enumerate(t_mats):
@@ -304,7 +341,7 @@ def animate_inverse_kinematics_sliders():
                             [lower_bound, upper_bound], value=desired_end_effector_pose[i], pointa=(
                                 0.7, 0.9-0.15*i),
                             pointb=(0.95, 0.9-0.15*i),
-                            title=end_effector_pose_labels[i], event_type="always")
+                            title=end_effector_pose_labels[i], event_type="end")
 
     p.show()
 
@@ -367,15 +404,16 @@ if __name__ == "__main__":
 
     # thetas = np.array([1, 2, 3, 4, 5, 6])*(math.pi/180)
     # thetas_init = thetas
-    # desired_end_effector_pose = np.array(
-    #     [6.28080000e+02, -1.58518282e-14,  1.69770000e+02, -3.14159265e+00, 1.57079631e+00, 0.00000000e+00])
-    # thetas_init = np.zeros(6)
+    desired_end_effector_pose = np.array(
+        [6.22080000e+02, 0,  1.70770000e+02, -3.14159265e+00, 1.57079631e+00, 0.00000000e+00])
+    thetas_init = np.zeros(6)
     # print(find_joint_angles(np.zeros(6) + 1e-2,
     #       get_end_effector_pose(np.zeros(6))))
     # thetas_init = [-1.12056808, -0.1700862265, -1.195606121, -0.1360689812, -0.8864493921, 2.732385203]
-    # find_joint_angles(thetas_init, desired_end_effector_pose)
-    # animate_robot_arm()
+    # scipy_find_joint_angles(thetas_init, desired_end_effector_pose)
+    # animate_forward_kinematics()
     animate_inverse_kinematics_sphere()
+    # animate_inverse_kinematics_sliders()
     # test_plane_widget()
 
     # display_robot_arm(get_t_mats(np.zeros(6)))
