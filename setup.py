@@ -21,7 +21,8 @@ setuptools.setup(
         'opencv-python',
         'opencv-contrib-python',
         'scipy',
-        'numba'
+        'numba',
+        'plac'
     ],
     extras_require={
         'debug': [
