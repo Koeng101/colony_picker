@@ -1,6 +1,7 @@
 import numpy as np
 import math
 import matplotlib.pyplot as plt
+from numpy.lib.utils import source
 import pyvista as pv
 from scipy.optimize import minimize
 from scipy.spatial.transform import Rotation
@@ -127,6 +128,11 @@ def get_euler_from_rot_mat(rot_mat):
     return r.as_euler("xyz")
 
 
+def get_quat_from_rot_mat(rot_mat):
+    r = Rotation.from_matrix(rot_mat)
+    return r.as_quat()
+
+
 def get_end_effector_pose(thetas):
     t_mats = get_t_mats(thetas)
     end_effector_position = t_mats[-1][:3, 3]
@@ -138,7 +144,19 @@ def get_end_effector_pose(thetas):
     return end_effector_pose
 
 
+def get_end_effector_pose_quat(thetas):
+    t_mats = get_t_mats(thetas)
+    end_effector_position = t_mats[-1][:3, 3]
+    rot_mat = t_mats[-1][:3, :3]
+    end_effector_rotation = get_quat_from_rot_mat(rot_mat)
+    end_effector_pose = np.zeros(7)
+    end_effector_pose[:3] = end_effector_position
+    end_effector_pose[3:] = end_effector_rotation
+    return end_effector_pose
+
 # got this formula from here: https://stackoverflow.com/questions/1878907/how-can-i-find-the-difference-between-two-angles
+
+
 def get_shortest_angle_to_target_in_radians(target_angle, source_angle):
     # returns directional angle
     a = target_angle - source_angle
@@ -156,6 +174,10 @@ def get_shortest_angle_to_target_in_degrees(target_angle, source_angle):
     return get_shortest_angle_to_target_in_radians(target_angle, source_angle)*(180/math.pi)
 
 
+def get_distance_between_quats(target_quat, source_quat):
+    return math.acos(2*(np.dot(target_quat, source_quat)**2) - 1)
+
+
 def get_directional_error(desired_end_effector_pose, current_end_effector_pose):
     directional_error = np.subtract(
         desired_end_effector_pose, current_end_effector_pose)
@@ -163,6 +185,15 @@ def get_directional_error(desired_end_effector_pose, current_end_effector_pose):
         directional_rotational_error = get_shortest_angle_to_target_in_radians(
             desired_end_effector_pose[3 + axis_idx], current_end_effector_pose[3 + axis_idx])
         directional_error[3 + axis_idx] = directional_rotational_error
+    return directional_error
+
+
+def get_error_with_quats(desired_end_effector_pose, current_end_effector_pose):
+    directional_error = np.subtract(
+        desired_end_effector_pose, current_end_effector_pose)
+    rotational_error = get_distance_between_quats(
+        desired_end_effector_pose[3:], current_end_effector_pose[3:])
+    directional_error[3:] = rotational_error
     return directional_error
 
 # confirmed formula using this: https://stackoverflow.com/questions/15927755/opposite-of-numpy-unwrap
@@ -177,10 +208,9 @@ def joint_angles_to_euler(joint_angles, radians=True):
 
 
 def objective_function(thetas, desired_end_effector_pose):
-    current_end_effector_pose = get_end_effector_pose(thetas)
-    error_vector = get_directional_error(
+    current_end_effector_pose = get_end_effector_pose_quat(thetas)
+    error_vector = get_error_with_quats(
         desired_end_effector_pose, current_end_effector_pose)
-
     error = np.linalg.norm(error_vector)
     return error
 
@@ -207,8 +237,11 @@ def scipy_find_joint_angles(thetas_init, desired_end_effector_pose):
     #     error = objective_function(thetas, desired_end_effector_pose)
     res = minimize(objective_function, thetas_init,
                    (desired_end_effector_pose,), method='CG', jac={'3-point'})
+    print("FINAL ERROR:")
+    print(res.fun)
+    print()
     print(res)
-    return res.x
+    return (res.x, res.fun)
 
 
 def pybullet_find_joint_angles(desired_end_effector_pose):
@@ -299,9 +332,18 @@ def animate_inverse_kinematics_sphere():
 
     def callback(idx, desired_end_effector_param):
         desired_end_effector_pose[idx] = desired_end_effector_param
-        thetas = scipy_find_joint_angles(
-            thetas_init, desired_end_effector_pose)
-        thetas_init[:] = thetas
+        rot = Rotation.from_euler(
+            'xyz', desired_end_effector_pose[3:], degrees=False)
+        rot_quat = rot.as_quat()
+        desired_end_effector_pose_quat = np.zeros(7)
+        desired_end_effector_pose_quat[:3] = desired_end_effector_pose[:3]
+        desired_end_effector_pose_quat[3:] = rot_quat
+
+        thetas, final_error = scipy_find_joint_angles(
+            thetas_init, desired_end_effector_pose_quat)
+
+        if final_error < 0.1:
+            thetas_init[:] = thetas
         t_mats = get_t_mats(thetas)
         for i, t_mat in enumerate(t_mats):
             positions[i + 1, :3] = t_mat[:3, 3]
@@ -423,7 +465,7 @@ if __name__ == "__main__":
     # scipy_find_joint_angles(thetas_init, desired_end_effector_pose)
     # animate_forward_kinematics()
 
-    # animate_inverse_kinematics_sphere()
+    animate_inverse_kinematics_sphere()
 
     # animate_inverse_kinematics_sliders()
     # test_plane_widget()
@@ -436,4 +478,4 @@ if __name__ == "__main__":
     #     print()
     # print(get_end_effector_pose(thetas))
 
-    pybullet_find_joint_angles(np.zeros(4))
+    # pybullet_find_joint_angles(np.zeros(4))

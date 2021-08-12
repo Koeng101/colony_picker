@@ -2,15 +2,17 @@ import numpy as np
 import sympy as sp
 import matplotlib.pyplot as plt
 import math
+from scipy.spatial.transform import Rotation
+
 
 # Denavit-Hartenberg Parameters of AR3 provided by
 # AR2 Version 2.0 software executable files from
 # https://www.anninrobotics.com/downloads
 # parameters are the same between the AR2 and AR3
-alphas = [-(sp.pi/2), 0, sp.pi/2, -(sp.pi/2), sp.pi/2, 0]
+alphas = [-(math.pi/2), 0, math.pi/2, -(math.pi/2), math.pi/2, 0]
 a_vals = [64.2, 305, 0, 0, 0, 0]
 d_vals = [169.77, 0, 0, -222.63, 0, -36.25]
-theta_offsets = [0, -(sp.pi/2), 0, 0, 0, sp.pi]
+theta_offsets = [0, 0, -math.pi/2, 0, 0, math.pi]
 
 NUM_JOINTS = 6
 
@@ -68,15 +70,6 @@ def get_unevaluated_jacobian(theta_names, unevaluated_t_mats):
         for joint_idx in range(NUM_JOINTS):
             unevaluated_jacobian[axis_idx, joint_idx] = sp.diff(
                 end_effector_position_expression, theta_names[joint_idx])
-    print("THETA 5 UNEVALUATED: ")
-    print(unevaluated_jacobian[:3, 4])
-    print()
-    print("THETA 6 UNEVALUATED: ")
-    print(unevaluated_jacobian[:3, 5])
-    print()
-    print("ARE THEY EQUAL?")
-    print(unevaluated_jacobian[:3, 4] == unevaluated_jacobian[:3, 5])
-    print()
     return unevaluated_jacobian
 
 
@@ -100,18 +93,31 @@ def get_jacobian(theta_substitutions, unevaluated_jacobian):
 #                      math.atan2(rot_mat[1, 0], rot_mat[0, 0])])
 
 def get_euler_from_rot_mat(rot_mat):
-    sy = math.sqrt(rot_mat[0, 0] * rot_mat[0, 0] +
-                   rot_mat[1, 0] * rot_mat[1, 0])
-    singular = sy < 1e-6
-    if not singular:
-        x = math.atan2(rot_mat[2, 1], rot_mat[2, 2])
-        y = math.atan2(-rot_mat[2, 0], sy)
-        z = math.atan2(rot_mat[1, 0], rot_mat[0, 0])
+    r = Rotation.from_matrix(rot_mat)
+    return r.as_euler("xyz")
+
+# got this formula from here: https://stackoverflow.com/questions/1878907/how-can-i-find-the-difference-between-two-angles
+
+
+def get_shortest_angle_to_target_in_radians(target_angle, source_angle):
+    # returns directional angle
+    a = target_angle - source_angle
+    if a > math.pi:
+        return a - 2*math.pi
+    elif a < -math.pi:
+        return a + 2*math.pi
     else:
-        x = math.atan2(-rot_mat[1, 2], rot_mat[1, 1])
-        y = math.atan2(-rot_mat[2, 0], sy)
-        z = 0
-    return np.array([x, y, z])
+        return a
+
+
+def get_directional_error(desired_end_effector_pose, current_end_effector_pose):
+    directional_error = np.subtract(
+        desired_end_effector_pose, current_end_effector_pose)
+    for axis_idx in range(3):
+        directional_rotational_error = get_shortest_angle_to_target_in_radians(
+            desired_end_effector_pose[3 + axis_idx], current_end_effector_pose[3 + axis_idx])
+        directional_error[3 + axis_idx] = directional_rotational_error
+    return directional_error
 
 
 def get_end_effector_pose(theta_substitutions, unevaluated_t_mats):
@@ -182,11 +188,11 @@ def find_joint_angles(current_thetas, desired_end_effector_pose):
 # find_joint_angles(thetas_init, desired_end_effector_pose)
 
 theta_vals = np.array([-1.12056808,
-                            - 0.1700862265,
-                            -1.195606121,
-                            -0.1360689812,
-                            -0.8864493921,
-                            2.732385203])
+                       - 0.1700862265,
+                       -1.195606121,
+                       -0.1360689812,
+                       -0.8864493921,
+                       2.732385203])
 
 theta_names = get_theta_names()
 unevaluated_t_mats = get_unevaluated_t_mats(theta_names)
