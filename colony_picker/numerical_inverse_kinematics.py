@@ -6,6 +6,7 @@ from scipy.optimize import minimize
 from scipy.spatial.transform import Rotation
 from functools import partial
 import logging
+import pybullet as pb
 
 # Denavit-Hartenberg Parameters of AR3 provided by
 # AR2 Version 2.0 software executable files from
@@ -210,6 +211,15 @@ def scipy_find_joint_angles(thetas_init, desired_end_effector_pose):
     return res.x
 
 
+def pybullet_find_joint_angles(desired_end_effector_pose):
+    pb.connect(pb.DIRECT)
+    body_unique_id = pb.loadURDF("colony_picker/ar3.urdf")
+    joint_angles = pb.calculateInverseKinematics(
+        body_unique_id, 5, desired_end_effector_pose[:3], desired_end_effector_pose[3:])
+    print(joint_angles)
+    return joint_angles
+
+
 def find_joint_angles(current_thetas, desired_end_effector_pose):
     current_end_effector_pose = get_end_effector_pose(current_thetas)
 
@@ -412,7 +422,9 @@ if __name__ == "__main__":
     # thetas_init = [-1.12056808, -0.1700862265, -1.195606121, -0.1360689812, -0.8864493921, 2.732385203]
     # scipy_find_joint_angles(thetas_init, desired_end_effector_pose)
     # animate_forward_kinematics()
-    animate_inverse_kinematics_sphere()
+
+    # animate_inverse_kinematics_sphere()
+
     # animate_inverse_kinematics_sliders()
     # test_plane_widget()
 
@@ -423,3 +435,5 @@ if __name__ == "__main__":
     #     print(t_mat)
     #     print()
     # print(get_end_effector_pose(thetas))
+
+    pybullet_find_joint_angles(np.zeros(4))
