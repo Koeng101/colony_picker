@@ -175,7 +175,7 @@ def get_shortest_angle_to_target_in_degrees(target_angle, source_angle):
 
 
 def get_distance_between_quats(target_quat, source_quat):
-    return math.acos(2*(np.dot(target_quat, source_quat)**2) - 1)
+    return np.arccos(2*(np.dot(target_quat, source_quat)**2) - 1)
 
 
 def get_directional_error(desired_end_effector_pose, current_end_effector_pose):
@@ -189,11 +189,12 @@ def get_directional_error(desired_end_effector_pose, current_end_effector_pose):
 
 
 def get_error_with_quats(desired_end_effector_pose, current_end_effector_pose):
-    directional_error = np.subtract(
-        desired_end_effector_pose, current_end_effector_pose)
+    directional_error = np.zeros(4)
+    directional_error[:3] = np.subtract(
+        desired_end_effector_pose[:3], current_end_effector_pose[:3])
     rotational_error = get_distance_between_quats(
         desired_end_effector_pose[3:], current_end_effector_pose[3:])
-    directional_error[3:] = rotational_error
+    directional_error[3] = rotational_error
     return directional_error
 
 # confirmed formula using this: https://stackoverflow.com/questions/15927755/opposite-of-numpy-unwrap
@@ -211,7 +212,9 @@ def objective_function(thetas, desired_end_effector_pose):
     current_end_effector_pose = get_end_effector_pose_quat(thetas)
     error_vector = get_error_with_quats(
         desired_end_effector_pose, current_end_effector_pose)
-    error = np.linalg.norm(error_vector)
+    error_vector = error_vector**2
+    error = np.sum(error_vector)
+    error = error*(1/len(error_vector))
     return error
 
 
@@ -236,11 +239,13 @@ def scipy_find_joint_angles(thetas_init, desired_end_effector_pose):
     #     thetas += grad * 0.000000000001
     #     error = objective_function(thetas, desired_end_effector_pose)
     res = minimize(objective_function, thetas_init,
-                   (desired_end_effector_pose,), method='CG', jac={'3-point'})
+                   (desired_end_effector_pose,), method='BFGS')
+    # res = minimize(objective_function, thetas_init,
+    #                (desired_end_effector_pose,), method='CG', jac={'3-point'})
     print("FINAL ERROR:")
-    print(res.fun)
-    print()
     print(res)
+    print()
+    # print(res)
     return (res.x, res.fun)
 
 
