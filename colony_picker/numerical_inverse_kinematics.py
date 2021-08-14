@@ -7,7 +7,6 @@ from scipy.optimize import minimize
 from scipy.spatial.transform import Rotation
 from functools import partial
 import logging
-import pybullet as pb
 
 # Denavit-Hartenberg Parameters of AR3 provided by
 # AR2 Version 2.0 software executable files from
@@ -79,48 +78,7 @@ def draw_links(plotter, joint_positions):
     poly.lines = cells
     poly["scalars"] = np.arange(poly.n_points)
     tube = poly.tube(radius=10)
-    plotter.add_mesh(tube, color="black", name="robot skeleton", opacity=0.9)
-
-
-# figured out which joint to end effector vectors to use from this link: https://automaticaddison.com/the-ultimate-guide-to-jacobian-matrices-for-robotics/
-
-
-def get_joint_to_end_effector_vectors(t_mats):
-    joint_to_end_effector_vectors = []
-    end_effector_t_mat = t_mats[-1]
-    for joint_idx in range(NUM_JOINTS):
-        t_mat = t_mats[joint_idx]
-        joint_to_end_effector_vector = np.subtract(
-            end_effector_t_mat[:3, 3], t_mat[:3, 3])
-        joint_to_end_effector_vectors.append(joint_to_end_effector_vector)
-    return joint_to_end_effector_vectors
-
-
-def draw_joint_to_end_effector_vector(plotter, t_mat, end_effector_pos):
-    points = np.array(
-        [t_mat[:3, 3], end_effector_pos])
-    draw_links(plotter, points)
-
-# Got the formula for the rotational component of the Jacobian from this website:
-# https://www.rosroboticslearning.com/jacobian
-# Got the formula for the cross product method for computing the translational
-# component of the Jacobian from slide 19/30 of this
-# lecture: https://www.cs.cmu.edu/~15464-s13/lectures/lecture6/IK.pdf
-
-
-def get_jacobian(thetas):
-    t_mats = get_t_mats(thetas)
-    jacobian = np.zeros((6, NUM_JOINTS))
-    base_t_mat = np.identity(4)
-    t_mats.insert(0, base_t_mat)
-    end_effector_vectors = get_joint_to_end_effector_vectors(t_mats)
-    for joint_idx in range(NUM_JOINTS):
-        t_mat = t_mats[joint_idx]
-        rot_axis = t_mat[:3, 2]
-        jacobian[:3, joint_idx] = np.cross(
-            rot_axis, end_effector_vectors[joint_idx])
-        jacobian[3:, joint_idx] = rot_axis
-    return jacobian
+    plotter.add_mesh(tube, color="black", name="robot skeleton", opacity=0.5)
 
 
 def get_euler_from_rot_mat(rot_mat):
@@ -133,253 +91,80 @@ def get_quat_from_rot_mat(rot_mat):
     return r.as_quat()
 
 
-def get_end_effector_pose(thetas):
+def get_pose_in_quat(pose_in_euler):
+    rot = Rotation.from_euler(
+        'xyz', pose_in_euler[3:], degrees=False)
+    quat = rot.as_quat()
+    pose_in_quat = np.zeros(7)
+    pose_in_quat[:3] = pose_in_euler[:3]
+    pose_in_quat[3:] = quat
+    return pose_in_quat
+
+
+def get_end_effector_pose(thetas, euler=False):
     t_mats = get_t_mats(thetas)
     end_effector_position = t_mats[-1][:3, 3]
     rot_mat = t_mats[-1][:3, :3]
-    end_effector_rotation = get_euler_from_rot_mat(rot_mat)
-    end_effector_pose = np.zeros(6)
-    end_effector_pose[:3] = end_effector_position
-    end_effector_pose[3:] = end_effector_rotation
-    return end_effector_pose
-
-
-def get_end_effector_pose_quat(thetas):
-    t_mats = get_t_mats(thetas)
-    end_effector_position = t_mats[-1][:3, 3]
-    rot_mat = t_mats[-1][:3, :3]
-    end_effector_rotation = get_quat_from_rot_mat(rot_mat)
-    end_effector_pose = np.zeros(7)
-    end_effector_pose[:3] = end_effector_position
-    end_effector_pose[3:] = end_effector_rotation
-    return end_effector_pose
-
-# got this formula from here: https://stackoverflow.com/questions/1878907/how-can-i-find-the-difference-between-two-angles
-
-
-def get_shortest_angle_to_target_in_radians(target_angle, source_angle):
-    # returns directional angle
-    a = target_angle - source_angle
-    if a > math.pi:
-        return a - 2*math.pi
-    elif a < -math.pi:
-        return a + 2*math.pi
+    if euler:
+        end_effector_rotation = get_euler_from_rot_mat(rot_mat)
+        end_effector_pose = np.zeros(6)
     else:
-        return a
+        end_effector_rotation = get_quat_from_rot_mat(rot_mat)
+        end_effector_pose = np.zeros(7)
+    end_effector_pose[:3] = end_effector_position
+    end_effector_pose[3:] = end_effector_rotation
+    return end_effector_pose
 
 
-def get_shortest_angle_to_target_in_degrees(target_angle, source_angle):
-    target_angle = target_angle*(math.pi/180)
-    source_angle = source_angle*(math.pi/180)
-    return get_shortest_angle_to_target_in_radians(target_angle, source_angle)*(180/math.pi)
-
-
-def get_distance_between_quats(target_quat, source_quat):
+def get_rotational_error(target_quat, source_quat):
     return np.arccos(2*(np.dot(target_quat, source_quat)**2) - 1)
 
 
-def get_directional_error(desired_end_effector_pose, current_end_effector_pose):
-    directional_error = np.subtract(
-        desired_end_effector_pose, current_end_effector_pose)
-    for axis_idx in range(3):
-        directional_rotational_error = get_shortest_angle_to_target_in_radians(
-            desired_end_effector_pose[3 + axis_idx], current_end_effector_pose[3 + axis_idx])
-        directional_error[3 + axis_idx] = directional_rotational_error
-    return directional_error
-
-
-def get_error_with_quats(desired_end_effector_pose, current_end_effector_pose):
-    directional_error = np.zeros(4)
-    directional_error[:3] = np.subtract(
+def get_error_vector(desired_end_effector_pose, current_end_effector_pose):
+    error_vector = np.zeros(4)
+    error_vector[:3] = np.subtract(
         desired_end_effector_pose[:3], current_end_effector_pose[:3])
-    rotational_error = get_distance_between_quats(
+    rotational_error = get_rotational_error(
         desired_end_effector_pose[3:], current_end_effector_pose[3:])
-    directional_error[3] = rotational_error
-    return directional_error
-
-# confirmed formula using this: https://stackoverflow.com/questions/15927755/opposite-of-numpy-unwrap
+    error_vector[3] = rotational_error
+    return error_vector
 
 
-def joint_angles_to_euler(joint_angles, radians=True):
-    if radians:
-        period = np.pi
-    else:
-        period = 180
-    return (joint_angles + period) % (2 * period) - period
-
-
-def objective_function(thetas, desired_end_effector_pose):
-    current_end_effector_pose = get_end_effector_pose_quat(thetas)
-    error_vector = get_error_with_quats(
-        desired_end_effector_pose, current_end_effector_pose)
+def get_mean_squared_error(error_vector):
     error_vector = error_vector**2
     error = np.sum(error_vector)
     error = error*(1/len(error_vector))
     return error
 
 
-def get_gradient(thetas, desired_end_effector_pose):
+def objective_function(thetas, desired_end_effector_pose):
     current_end_effector_pose = get_end_effector_pose(thetas)
-    error_vector = get_directional_error(
+    error_vector = get_error_vector(
         desired_end_effector_pose, current_end_effector_pose)
-    jacobian = get_jacobian(thetas)
-    jacobian_generalized_inverse = np.linalg.pinv(jacobian)
-    print(np.any(np.abs(error_vector) > 10))
-    d_thetas = -np.matmul(jacobian_generalized_inverse, error_vector)
-    return d_thetas
+    return get_mean_squared_error(error_vector)
 
 
 def scipy_find_joint_angles(thetas_init, desired_end_effector_pose):
-
-    # error = objective_function(thetas_init.copy(), desired_end_effector_pose)
-    # thetas = thetas_init
-    # for i in range(100):
-    #     grad = get_gradient(thetas, desired_end_effector_pose)
-
-    #     thetas += grad * 0.000000000001
-    #     error = objective_function(thetas, desired_end_effector_pose)
-    res = minimize(objective_function, thetas_init,
-                   (desired_end_effector_pose,), method='BFGS')
-    # res = minimize(objective_function, thetas_init,
-    #                (desired_end_effector_pose,), method='CG', jac={'3-point'})
-    print("FINAL ERROR:")
-    print(res)
+    result = minimize(objective_function, thetas_init,
+                      (desired_end_effector_pose,), method='BFGS')
+    print(result)
     print()
-    # print(res)
-    return (res.x, res.fun)
-
-
-def pybullet_find_joint_angles(desired_end_effector_pose):
-    pb.connect(pb.DIRECT)
-    body_unique_id = pb.loadURDF("colony_picker/ar3.urdf")
-    joint_angles = pb.calculateInverseKinematics(
-        body_unique_id, 5, desired_end_effector_pose[:3], desired_end_effector_pose[3:])
-    print(joint_angles)
-    return joint_angles
-
-
-def find_joint_angles(current_thetas, desired_end_effector_pose):
-    current_end_effector_pose = get_end_effector_pose(current_thetas)
-
-    error_directional = get_directional_error(
-        desired_end_effector_pose, current_end_effector_pose)
-
-    error = np.linalg.norm(error_directional)
-    iters = 0
-    desired_error = np.zeros(6)
-    desired_error += 1e-5
-    step_decay_rate = 0.5
-
-    errors = []
-    for end_effector_idx in range(6):
-        errors.append([])
-
-    step_size = 1
-    last_thetas = current_thetas
-    while np.any(np.greater(error, desired_error)) and iters < 1000:
-
-        current_end_effector_pose = get_end_effector_pose(current_thetas)
-
-        error_directional = get_directional_error(
-            desired_end_effector_pose, current_end_effector_pose)
-        new_error = np.linalg.norm(error_directional)
-        if new_error > error:
-            current_thetas = last_thetas
-            step_size *= step_decay_rate
-        else:
-            # step_size *= 1.1
-            last_thetas = current_thetas
-            error = new_error
-        # print(f"=======ITER {iters}=======")
-        # print(f"ERROR: {error_directional}")
-        # print(f"CURRENT END EFFECTOR POSE: {current_end_effector_pose}")
-        # print(f"CURRENT JOINT ANGLES: {current_thetas}")
-        # print(f"=========================")
-
-        for end_effector_idx in range(6):
-            errors[end_effector_idx].append(
-                error_directional[end_effector_idx])
-
-        jacobian = get_jacobian(current_thetas)
-        jacobian_generalized_inverse = np.linalg.pinv(jacobian)
-
-        d_thetas = np.matmul(jacobian_generalized_inverse,
-                             step_size*error_directional)
-        current_thetas = np.add(current_thetas, d_thetas)
-
-        iters += 1
-    if np.any(np.greater(error, desired_error)):
-        print(iters)
-        logging.warning("Inverse kinematics did not converge")
-
-    # current_end_effector_pose[3:] = np.rad2deg(current_end_effector_pose[3:])
-    print(f"*************************")
-    print(f"final NUMBER OF ITERATIONS: {iters}")
-    print(f"final ERROR: {error}")
-    print(f"final END EFFECTOR POSE: {current_end_effector_pose}")
-    print(f"final JOINT ANGLES: {current_thetas}")
-    print(f"*************************")
-    # labels = ["x", "y", "z", "x_rot", "y_rot", "z_rot"]
-    # for end_effector_idx in range(6):
-    #     plt.plot(list(range(iters)),
-    #              errors[end_effector_idx], label=labels[end_effector_idx])
-    # plt.legend()
-    # plt.show()
-    return current_thetas
-
-
-def animate_inverse_kinematics_sphere():
-    positions = np.zeros((NUM_JOINTS + 1, 3))
-    p = pv.Plotter()
-    draw_coordinate_system(p, np.eye(4), base=True)
-    thetas_init = np.zeros(6)
-    desired_end_effector_pose = np.array(get_end_effector_pose(thetas_init))
-
-    def callback(idx, desired_end_effector_param):
-        desired_end_effector_pose[idx] = desired_end_effector_param
-        rot = Rotation.from_euler(
-            'xyz', desired_end_effector_pose[3:], degrees=False)
-        rot_quat = rot.as_quat()
-        desired_end_effector_pose_quat = np.zeros(7)
-        desired_end_effector_pose_quat[:3] = desired_end_effector_pose[:3]
-        desired_end_effector_pose_quat[3:] = rot_quat
-
-        thetas, final_error = scipy_find_joint_angles(
-            thetas_init, desired_end_effector_pose_quat)
-
-        if final_error < 0.1:
-            thetas_init[:] = thetas
-        t_mats = get_t_mats(thetas)
-        for i, t_mat in enumerate(t_mats):
-            positions[i + 1, :3] = t_mat[:3, 3]
-            if i == NUM_JOINTS - 1:
-                draw_coordinate_system(p, t_mat, name=f"theta{i}", base=True)
-            else:
-                draw_coordinate_system(p, t_mat, name=f"theta{i}")
-        draw_links(p, positions)
-
-    p.add_sphere_widget(
-        partial(callback, range(0, 3)), center=desired_end_effector_pose[:3], radius=10, color="#00FF00", test_callback=False)
-    end_effector_pose_labels = ["x_rot", "y_rot", "z_rot"]
-    for i in range(3):
-        p.add_slider_widget(partial(callback, i + 3),
-                            [-np.pi, np.pi], value=desired_end_effector_pose[i + 3], pointa=(
-            0.7, 0.9-0.15*i),
-            pointb=(0.95, 0.9-0.15*i),
-            title=end_effector_pose_labels[i], event_type="end")
-
-    p.show()
+    return (result.x, result.fun)
 
 
 def animate_inverse_kinematics_sliders():
     p = pv.Plotter()
     draw_coordinate_system(p, np.eye(4), base=True)
     thetas_init = np.zeros(6)
-    desired_end_effector_pose = np.array(get_end_effector_pose(thetas_init))
+    desired_end_effector_pose = np.array(
+        get_end_effector_pose(thetas_init, euler=True))
 
     def callback(idx, desired_end_effector_pose_component):
         desired_end_effector_pose[idx] = desired_end_effector_pose_component
-        thetas = find_joint_angles(thetas_init, desired_end_effector_pose)
+        desired_end_effector_pose_quat = get_pose_in_quat(
+            desired_end_effector_pose)
+        thetas, _ = scipy_find_joint_angles(
+            thetas_init, desired_end_effector_pose_quat)
         t_mats = get_t_mats(thetas)
         for i, t_mat in enumerate(t_mats):
             if i == NUM_JOINTS - 1:
@@ -403,6 +188,43 @@ def animate_inverse_kinematics_sliders():
     p.show()
 
 
+def animate_inverse_kinematics_sphere():
+    positions = np.zeros((NUM_JOINTS + 1, 3))
+    p = pv.Plotter()
+    draw_coordinate_system(p, np.eye(4), base=True)
+    thetas_init = np.zeros(6)
+    desired_end_effector_pose = np.array(
+        get_end_effector_pose(thetas_init, euler=True))
+
+    def callback(idx, desired_end_effector_param):
+        desired_end_effector_pose[idx] = desired_end_effector_param
+        desired_end_effector_pose_in_quat = get_pose_in_quat(
+            desired_end_effector_pose)
+
+        thetas, error = scipy_find_joint_angles(
+            thetas_init, desired_end_effector_pose_in_quat)
+
+        if error < 0.1:
+            thetas_init[:] = thetas
+        t_mats = get_t_mats(thetas)
+        for i, t_mat in enumerate(t_mats):
+            positions[i + 1, :3] = t_mat[:3, 3]
+            draw_coordinate_system(p, t_mat, name=f"theta{i}")
+        draw_links(p, positions)
+
+    p.add_sphere_widget(
+        partial(callback, range(0, 3)), center=desired_end_effector_pose[:3], radius=10, color="#00FF00", test_callback=False)
+    end_effector_pose_labels = ["x_rot", "y_rot", "z_rot"]
+    for i in range(3):
+        p.add_slider_widget(partial(callback, i + 3),
+                            [-np.pi, np.pi], value=desired_end_effector_pose[i + 3], pointa=(
+            0.7, 0.9-0.15*i),
+            pointb=(0.95, 0.9-0.15*i),
+            title=end_effector_pose_labels[i], event_type="end")
+
+    p.show()
+
+
 def animate_forward_kinematics():
     p = pv.Plotter()
     draw_coordinate_system(p, np.eye(4), True)
@@ -422,65 +244,6 @@ def animate_forward_kinematics():
     p.show()
 
 
-def test_plane_widget():
-    p = pv.Plotter()
-    test_geom = pv.Sphere()
-    p.add_mesh(test_geom)
-
-    def callback(normal, origin):
-        print("NORMAL: ")
-        print(normal)
-        test_geom = pv.Sphere()
-        p.add_mesh(test_geom, name="sphere", opacity=0.5)
-
-    p.add_plane_widget(callback)
-    p.show()
-
-
 if __name__ == "__main__":
-    # np.set_printoptions(precision=2, suppress=True)
-    # thetas = np.ones(6)
-    # thetas[5] = math.pi
-    # thetas[1] = math.pi/2
-    # get_jacobian(thetas)
-    # print("Jacobian: ")
-    # print(get_jacobian(thetas))
-
-    thetas_init = np.zeros(NUM_JOINTS)
-    # thetas_init = np.array([0.0001745329252,
-    #                         -1.570796327,
-    #                         0,
-    #                         0.0001745329252,
-    #                         0.0001745329252,
-    #                         3.141767187])
-    # print(thetas_init)
-    # t_mats = get_t_mats(thetas_init)
-    # print(len(t_mats))
-    # for t_mat in t_mats:
-    #     print(t_mat)
-
-    # thetas = np.array([1, 2, 3, 4, 5, 6])*(math.pi/180)
-    # thetas_init = thetas
-    desired_end_effector_pose = np.array(
-        [6.22080000e+02, 0,  1.70770000e+02, -3.14159265e+00, 1.57079631e+00, 0.00000000e+00])
-    thetas_init = np.zeros(6)
-    # print(find_joint_angles(np.zeros(6) + 1e-2,
-    #       get_end_effector_pose(np.zeros(6))))
-    # thetas_init = [-1.12056808, -0.1700862265, -1.195606121, -0.1360689812, -0.8864493921, 2.732385203]
-    # scipy_find_joint_angles(thetas_init, desired_end_effector_pose)
-    # animate_forward_kinematics()
 
     animate_inverse_kinematics_sphere()
-
-    # animate_inverse_kinematics_sliders()
-    # test_plane_widget()
-
-    # display_robot_arm(get_t_mats(np.zeros(6)))
-    # t_mats = get_t_mats(thetas)
-    # print("T_MATS: ")
-    # for t_mat in t_mats:
-    #     print(t_mat)
-    #     print()
-    # print(get_end_effector_pose(thetas))
-
-    # pybullet_find_joint_angles(np.zeros(4))
