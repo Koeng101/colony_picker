@@ -83,7 +83,7 @@ def draw_links(plotter, joint_positions):
 
 def get_euler_from_rot_mat(rot_mat):
     r = Rotation.from_matrix(rot_mat)
-    return r.as_euler("xyz")
+    return r.as_euler("ZYX")
 
 
 def get_quat_from_rot_mat(rot_mat):
@@ -91,14 +91,23 @@ def get_quat_from_rot_mat(rot_mat):
     return r.as_quat()
 
 
-def get_pose_in_quat(pose_in_euler):
+def convert_pose_to_quat(pose_in_euler):
     rot = Rotation.from_euler(
-        'xyz', pose_in_euler[3:], degrees=False)
+        'ZYX', pose_in_euler[3:], degrees=False)
     quat = rot.as_quat()
     pose_in_quat = np.zeros(7)
     pose_in_quat[:3] = pose_in_euler[:3]
     pose_in_quat[3:] = quat
     return pose_in_quat
+
+
+def convert_pose_to_euler(pose_in_quat):
+    rot = Rotation.from_quat(pose_in_quat[3:])
+    euler = rot.as_euler("ZYX")
+    pose_in_euler = np.zeros(6)
+    pose_in_euler[:3] = pose_in_quat[:3]
+    pose_in_euler[3:] = euler
+    return pose_in_euler
 
 
 def get_end_effector_pose(thetas, euler=False):
@@ -117,7 +126,7 @@ def get_end_effector_pose(thetas, euler=False):
 
 
 def get_rotational_error(target_quat, source_quat):
-    return np.arccos(2*(np.dot(target_quat, source_quat)**2) - 1)
+    return np.arccos(np.clip(2*(np.dot(target_quat, source_quat)**2) - 1, -1, 1))
 
 
 def get_error_vector(desired_end_effector_pose, current_end_effector_pose):
@@ -147,33 +156,37 @@ def objective_function(thetas, desired_end_effector_pose):
 def scipy_find_joint_angles(thetas_init, desired_end_effector_pose):
     result = minimize(objective_function, thetas_init,
                       (desired_end_effector_pose,), method='BFGS')
+    if result.fun > 1e-07:
+        print("ERROR TOO HIGH")
     print(result)
-    print()
     return (result.x, result.fun)
 
 
 def animate_inverse_kinematics_sliders():
+    joint_positions = np.zeros((NUM_JOINTS + 1, 3))
     p = pv.Plotter()
     draw_coordinate_system(p, np.eye(4), base=True)
     thetas_init = np.zeros(6)
-    desired_end_effector_pose = np.array(
-        get_end_effector_pose(thetas_init, euler=True))
+    desired_end_effector_pose = get_end_effector_pose(thetas_init, euler=True)
 
-    def callback(idx, desired_end_effector_pose_component):
-        desired_end_effector_pose[idx] = desired_end_effector_pose_component
-        desired_end_effector_pose_quat = get_pose_in_quat(
+    def callback(idx, pose_param):
+        desired_end_effector_pose[idx] = pose_param
+        desired_end_effector_pose_quat = convert_pose_to_quat(
             desired_end_effector_pose)
-        thetas, _ = scipy_find_joint_angles(
+        thetas, error = scipy_find_joint_angles(
             thetas_init, desired_end_effector_pose_quat)
+        if error < 0.1:
+            thetas_init[:] = thetas
         t_mats = get_t_mats(thetas)
         for i, t_mat in enumerate(t_mats):
-            if i == NUM_JOINTS - 1:
-                draw_coordinate_system(p, t_mat, name=f"theta{i}", base=True)
-            else:
-                draw_coordinate_system(p, t_mat, name=f"theta{i}")
+            joint_positions[i + 1, :3] = t_mat[:3, 3]
+            draw_coordinate_system(p, t_mat, name=f"theta{i}")
+        draw_links(p, joint_positions)
     end_effector_pose_labels = ["x", "y", "z", "x_rot", "y_rot", "z_rot"]
     for i in range(6):
         if i <= 2:
+            # TODO(ramininaieni): make the upper and lower bounds for position
+            # more concrete
             lower_bound = -700
             upper_bound = -lower_bound
         else:
@@ -189,28 +202,26 @@ def animate_inverse_kinematics_sliders():
 
 
 def animate_inverse_kinematics_sphere():
-    positions = np.zeros((NUM_JOINTS + 1, 3))
+    joint_positions = np.zeros((NUM_JOINTS + 1, 3))
     p = pv.Plotter()
     draw_coordinate_system(p, np.eye(4), base=True)
     thetas_init = np.zeros(6)
-    desired_end_effector_pose = np.array(
-        get_end_effector_pose(thetas_init, euler=True))
+    desired_end_effector_pose = get_end_effector_pose(thetas_init, euler=True)
 
-    def callback(idx, desired_end_effector_param):
-        desired_end_effector_pose[idx] = desired_end_effector_param
-        desired_end_effector_pose_in_quat = get_pose_in_quat(
+    def callback(idx, pose_param):
+        desired_end_effector_pose[idx] = pose_param
+        desired_end_effector_pose_in_quat = convert_pose_to_quat(
             desired_end_effector_pose)
-
         thetas, error = scipy_find_joint_angles(
             thetas_init, desired_end_effector_pose_in_quat)
-
         if error < 0.1:
             thetas_init[:] = thetas
+
         t_mats = get_t_mats(thetas)
         for i, t_mat in enumerate(t_mats):
-            positions[i + 1, :3] = t_mat[:3, 3]
+            joint_positions[i + 1, :3] = t_mat[:3, 3]
             draw_coordinate_system(p, t_mat, name=f"theta{i}")
-        draw_links(p, positions)
+        draw_links(p, joint_positions)
 
     p.add_sphere_widget(
         partial(callback, range(0, 3)), center=desired_end_effector_pose[:3], radius=10, color="#00FF00", test_callback=False)
@@ -226,6 +237,7 @@ def animate_inverse_kinematics_sphere():
 
 
 def animate_forward_kinematics():
+    joint_positions = np.zeros((NUM_JOINTS + 1, 3))
     p = pv.Plotter()
     draw_coordinate_system(p, np.eye(4), True)
     thetas = np.zeros(6)
@@ -234,16 +246,19 @@ def animate_forward_kinematics():
         thetas[idx] = theta
         t_mats = get_t_mats(thetas)
         for i, t_mat in enumerate(t_mats):
+            joint_positions[i + 1, :3] = t_mat[:3, 3]
             draw_coordinate_system(p, t_mat, name=f"theta_{i}")
+        draw_links(p, joint_positions)
 
     for i in range(NUM_JOINTS):
         p.add_slider_widget(partial(callback, (i,)),
                             [-np.pi, np.pi], pointa=(0.7, 0.9-0.15*i),
                             pointb=(0.95, 0.9-0.15*i),
-                            title=f"Theta {i}", event_type="always")
+                            title=f"Theta {i}", event_type="end")
     p.show()
 
 
 if __name__ == "__main__":
-
+    # animate_inverse_kinematics_sliders()
     animate_inverse_kinematics_sphere()
+    # animate_forward_kinematics()
