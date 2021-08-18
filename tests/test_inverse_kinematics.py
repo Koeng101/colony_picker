@@ -1,55 +1,25 @@
-"""Tests the pose submodule.
+"""Tests numerical inverse kinematics pipeline.
 """
 import unittest
-from typing import Union
-import numpy as np
-import math
-import matplotlib
-import pyvista
-import quaternion
 from colony_picker.numerical_inverse_kinematics import*
+import random
+import math
+
+ar3_alpha_vals = [-(math.pi/2), 0, math.pi/2, -(math.pi/2), math.pi/2, 0]
+ar3_a_vals = [64.2, 305, 0, 0, 0, 0]
+ar3_d_vals = [169.77, 0, 0, -222.63, 0, -36.25]
+ar3_theta_offsets = [0, 0, -math.pi/2, 0, 0, math.pi]
+ar3_num_joints = len(ar3_alpha_vals)
+
+ar3_dh_params = np.array(
+    [ar3_theta_offsets, ar3_alpha_vals, ar3_a_vals, ar3_d_vals])
 
 
-class test_inverse_kinematics(unittest.TestCase):
-    """A unit test harness for the Pose class
+class TestInverseKinematics(unittest.TestCase):
+    """A unit test harness for testing the numerical inverse kinematics pipeline
     """
 
-    @unittest.skip("No reason")
-    def test_get_t_mats(self):
-        """Tests whether get_t_mats successfully generates transformation matrices
-        in the base frame for each arm joint.
-        """
-
-        thetas = [0 for joint in list(range(NUM_JOINTS))]
-
-        t_mats = get_t_mats(thetas)
-        self.assertTrue(len(t_mats) == NUM_JOINTS)
-
-        for t_mat_idx_1 in range(len(t_mats)):
-            for t_mat_idx_2 in range(t_mat_idx_1 + 1, len(t_mats)):
-                self.assertTrue(not np.array_equal(
-                    t_mats[t_mat_idx_1], t_mats[t_mat_idx_2]))
-
-    @unittest.skip("No reason")
-    def test_animate_plot(self):
-        animate_forward_kinematics()
-
-    def test_get_shortest_angle_to_target(self):
-        test_cases = [(-30, 30, -60), (-30, 150, -180), (-30, -150, 120),
-                      (-30, -50, 20), (30, 150, -120), (30, -150, 180),
-                      (30, 50, -20), (150, -150, -60), (150, 170, -20),
-                      (-170, -150, -20)]
-        for test_case in test_cases:
-
-            target_angle, source_angle, shortest_angle = test_case
-
-            self.assertTrue(np.isclose(get_shortest_angle_to_target_in_degrees(
-                target_angle, source_angle), shortest_angle))
-
-            self.assertTrue(np.isclose(get_shortest_angle_to_target_in_degrees(
-                source_angle, target_angle), -shortest_angle))
-
-    def test_joint_angles_to_euler(self):
+    def test_wrap_joint_angles(self):
         test_cases = [(7, 7), (367, 7), (540, -180),
                       (-75, -75), (-360, 0), (-367, -7),
                       (-460, -100)]
@@ -57,27 +27,33 @@ class test_inverse_kinematics(unittest.TestCase):
             joint_angle, euler_angle = test_case
             joint_angle_arr = np.array([joint_angle])
             euler_angle_arr = np.array([euler_angle])
-            self.assertTrue(joint_angles_to_euler(
+            self.assertTrue(wrap_joint_angles(
                 joint_angle_arr, radians=False) == euler_angle_arr)
-    # def test_find_joint_angles(self):
+
+    def test_find_joint_angles(self):
+        iters = 1000
+        thetas_init = np.zeros(ar3_num_joints)
+        joint_angles = np.array([[random.uniform(-math.pi, math.pi)
+                                 for i in range(iters)] for i in range(ar3_num_joints)])
+        for test_idx in range(iters):
+            test_joint_angles = joint_angles[:, test_idx]
+            target_pose = get_end_effector_pose(
+                test_joint_angles, ar3_dh_params)
+            _, solved = find_joint_angles(
+                thetas_init, target_pose, ar3_dh_params)
+            self.assertTrue(solved)
 
     @unittest.skip("No reason")
-    def test_directional_error(self):
-        pos = np.zeros((30, 3))
-        angs = np.linspace(0, 4*np.pi, len(pos))
-        euler_angles = np.zeros((len(pos), 3))
-        euler_angles[:, 0] = angs
+    def test_animate_plot(self):
+        animate_forward_kinematics(ar3_dh_params)
 
-        de_x = []
-        for ea in euler_angles:
-            curr_pose = np.zeros(6)
-            des_pose = np.zeros(6)
-            des_pose[3:] = ea
-            de = get_directional_error(curr_pose, des_pose)
-            de_x.append(np.abs(de[3]))
+    @unittest.skip("No reason")
+    def test_animate_inverse_kinematics_sphere(self):
+        animate_inverse_kinematics_sphere(ar3_dh_params)
 
-        plt.plot(angs, de_x)
-        plt.show()
+    @unittest.skip("No reason")
+    def test_animate_inverse_kinematics_sliders(self):
+        animate_inverse_kinematics_sliders(ar3_dh_params)
 
 
 if __name__ == "__main__":
