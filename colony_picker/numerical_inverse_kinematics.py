@@ -166,8 +166,7 @@ def animate_inverse_kinematics_sliders(dh_params, position_bound=700):
             thetas_init, desired_end_effector_pose_quat, dh_params)
         if error < 0.1:
             thetas_init[:] = thetas
-        t_mats = get_t_mats(thetas, theta_offsets,
-                            alpha_vals, a_vals, d_vals, num_joints)
+        t_mats = get_t_mats(thetas, dh_params)
         for i, t_mat in enumerate(t_mats):
             joint_positions[i + 1, :3] = t_mat[:3, 3]
             draw_coordinate_system(p, t_mat, name=f"theta{i}")
@@ -207,8 +206,7 @@ def animate_inverse_kinematics_sphere(dh_params):
         if error < 0.1:
             thetas_init[:] = thetas
 
-        t_mats = get_t_mats(thetas, theta_offsets,
-                            alpha_vals, a_vals, d_vals, num_joints)
+        t_mats = get_t_mats(thetas, dh_params)
         for i, t_mat in enumerate(t_mats):
             joint_positions[i + 1, :3] = t_mat[:3, 3]
             draw_coordinate_system(p, t_mat, name=f"theta{i}")
@@ -263,5 +261,5 @@ if __name__ == "__main__":
     dh_params = np.array([theta_offsets, alpha_vals, a_vals, d_vals])
 
     # animate_inverse_kinematics_sliders(dh_params)
-    # animate_inverse_kinematics_sphere(dh_params)
-    animate_forward_kinematics(dh_params)
+    animate_inverse_kinematics_sphere(dh_params)
+    # animate_forward_kinematics(dh_params)
