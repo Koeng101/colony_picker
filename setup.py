@@ -4,7 +4,7 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 setuptools.setup(
-    name="colony_picker",  # Replace with your own username
+    name="colony_picker",
     version="0.0.1",
     description="Adding colony picking ability to the AR3 robot arm.",
     long_description=long_description,
@@ -22,10 +22,12 @@ setuptools.setup(
         'opencv-contrib-python',
         'scipy',
         'numba',
-        'matplotlib',
+        'plac'
     ],
     extras_require={
-
+        'debug': [
+            'pyvista'
+        ]
     },
     python_requires='>=3.6',
 )
