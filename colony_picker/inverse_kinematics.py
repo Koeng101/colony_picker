@@ -6,7 +6,6 @@ from scipy.spatial.transform import Rotation
 from functools import partial
 import random
 import warnings
-import time
 
 # *************************************** #
 #     INVERSE KINEMATICS CALCULATIONS     #
@@ -633,5 +632,3 @@ if __name__ == "__main__":
 
     ar3_dh_params = np.array(
         [ar3_theta_offsets, ar3_alpha_vals, ar3_a_vals, ar3_d_vals])
-
-    animate_forward_kinematics(ar3_dh_params)
