@@ -93,7 +93,7 @@ def get_t_mats(thetas: np.ndarray, dh_params: np.ndarray):
     Returns:
         np.ndarray: an array containing 4 x 4 transformation matrices that each
             describe the position and orientation of each joint relative to the
-            base frame in the format [joint 1, joint 2, ... , joint num joints]
+            base frame in the format [t mat 1, t mat 2, ... , t mat num joints].
     """
     num_joints = len(dh_params[0])
     t_mats = []
@@ -264,10 +264,11 @@ def find_joint_angles(thetas_init: np.ndarray,
     Args:
         thetas_init (np.ndarray): a 1 x n array containing joint angles to seed
             the optimization algorithm with in the format
-            [joint 1, joint 2, ... , joint n], where n is the number of joints
-            in the robot arm. The closer these angles are to the true joint
-            angles, the more likely it is that the optimization will find the
-            true joint angles that lead to the desired end effector pose. 
+            [joint angle 1, joint angle 2, ... , joint angle n], where n is the
+            number of joints in the robot arm. The closer these angles are to 
+            the true joint angles, the more likely it is that the optimization
+            will find the true joint angles that lead to the desired end
+            effector pose. 
         desired_end_effector_pose (np.ndarray): a 1 x 7 array describing the
             desired position and orientation of the end effector in the format
             [x position, y position, z position, x, y, z, w] in which the first
@@ -341,7 +342,7 @@ def draw_coordinate_system(plotter: pv.Plotter, t_mat: np.ndarray,
         t_mat (np.ndarray): a transformation matrix describing the position and
             orientation of the coordinate system relative to the base reference
             frame. 
-        base (bool, optional): Whether the coordinate system being drawn
+        base (bool, optional): whether the coordinate system being drawn
             represents the base of the robot. Defaults to False.
         name (str, optional): the name of the joint whose coordinate system is
             being drawn so that the position and orientation of the coordinate
@@ -606,7 +607,7 @@ def wrap_joint_angles(joint_angles: np.ndarray, radians: bool = True):
     Args:
         joint_angles (np.ndarray): a 1 x n array of joint angles in radians or
             degrees.
-        radians (bool, optional): Whether the input is in radians.
+        radians (bool, optional): whether the input is in radians.
             Defaults to True.
 
     Returns:
