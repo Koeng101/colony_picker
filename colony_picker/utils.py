@@ -146,52 +146,6 @@ def view_projection(points_3d: np.ndarray,
     return plotter
 
 
-def generate_fiducials(
-        tag_dictionary: cv2.aruco_Dictionary,
-        ids: np.ndarray,
-        size: float,
-        base_file_name: str,
-        include_white_border: bool = False,
-        dpi: float = 300):
-    """Generate a set of Aruco tag fiducial images and save them as files.
-
-    Args:
-        tag_dictionary (cv2.aruco_Dictionary): The aruco tag dictionary
-            describing the tag family.
-        ids (np.ndarray): A length #N vector of integer tag ids to create
-            fiducial images for. The ids should be valid for the provided tag
-            dictionary.
-        size (float): The side length of the fiducial square in mm (at the
-            provided dpi).
-        base_file_name (str): The base file name to use to save the tag images.
-        include_white_border (bool, optional): If True, then add a white border
-            which is the same width as the tag squares, as well as a single
-            pixel black border (to aid in cutting out the tags). This is useful
-            if placing the tags on a dark object, so that sufficient contract
-            is provided by the tags themselves. Defaults to False.
-        dpi (float, optional): The pixels per inch of the resulting image.
-            Defaults to 300.
-    """
-    pixels = int(dpi * (size / 25.4))  # Convert to mm
-
-    for id in ids:
-
-        tag = cv2.aruco.drawMarker(tag_dictionary, id, pixels)
-        if include_white_border:
-            num_squares = tag_dictionary.markerSize + 2
-            square_size = int(pixels / num_squares)
-            # One additional pixel is left on each side or a "black" border to
-            # make tag easy to cut out.
-            new_pixels = pixels + 2 * square_size + 2
-
-            border = np.zeros((new_pixels, new_pixels))
-            border[1:-1, 1:-1] = 255
-            border[square_size:square_size + pixels,
-                   square_size:square_size + pixels] = tag
-            tag = border
-        cv2.imwrite(f"{base_file_name}_{id}.png", tag)
-
-
 def rotate_image_card_3d(
         img: np.ndarray,
         img_size: np.ndarray,
@@ -263,7 +217,7 @@ def rotate_image_card_3d(
 def calibrate_camera(board_squares_x: int, board_squares_y: int,
                      board_square_size: float, frames: np.ndarray,
                      num_samples: int = 20):
-    """Calibrate a camera using a know chess board and a sequence of images
+    """Calibrate a camera using a known chess board and a sequence of images
     represented by a numpy array. If more images are present in the array than
     num_samples, then the images are sampled randomly to solve for the
     camera calibration, so the result may be non-deterministic.
