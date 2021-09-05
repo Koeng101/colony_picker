@@ -84,7 +84,7 @@ class Camera():
             np.ndarray: The distortion coefficients.
         """
         return np.array([self.k1, self.k2, self.p1, self.p2, self.k3, self.k4,
-                         self.k5, self.k6, self.s1, self.s2, self.s3, self.s4])
+                         self.k5, self.k6, self.s1, self.s2, self.s3, self.s4], dtype=np.float)
 
 
 class Fiducial():
