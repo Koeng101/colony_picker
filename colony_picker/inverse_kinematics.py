@@ -1,11 +1,11 @@
-import numpy as np
+import warnings
 import math
-import pyvista as pv
+import random
+from functools import partial
+import numpy as np
 from scipy.optimize import minimize
 from scipy.spatial.transform import Rotation
-from functools import partial
-import random
-import warnings
+import pyvista as pv
 
 # *************************************** #
 #     INVERSE KINEMATICS CALCULATIONS     #
@@ -13,27 +13,28 @@ import warnings
 
 
 def get_euler_from_rot_mat(rot_mat: np.ndarray):
-    """returns the ZYX euler angle represented by the inputted rotation matrix.
+    """Returns the ZYX euler angle represented by the inputted rotation matrix.
 
     Args:
-        rot_mat (np.ndarray): a 3 x 3 rotation matrix.
+        rot_mat (np.ndarray): A 3x3 rotation matrix.
 
     Returns:
-        np.ndarray: a 1 x 3 array describing the rotation using the ZYX euler
-            angle convention.
+        np.ndarray: A vector of legth 3 describing the rotation using the ZYX
+            euler angle convention.
     """
     r = Rotation.from_matrix(rot_mat)
     return r.as_euler("ZYX")
 
 
 def get_quat_from_rot_mat(rot_mat: np.ndarray):
-    """returns the quaternion represented by the inputted rotation matrix.
+    """Returns the quaternion represented by the inputted rotation matrix.
 
     Args:
-        rot_mat (np.ndarray): a 3 x 3 rotation matrix.
+        rot_mat (np.ndarray): A 3x3 rotation matrix.
 
     Returns:
-        np.ndarray: a 1 x 4 array describing the rotation as a quaternion.
+        np.ndarray: A vector of length 4 describing the rotation as a
+            quaternion.
     """
     r = Rotation.from_matrix(rot_mat)
     return r.as_quat()
@@ -45,13 +46,13 @@ def get_t_mat(theta: float, single_joint_dh_param: np.ndarray):
     previous joint's reference frame.
 
     Args:
-        theta (float): the theta value of the single joint.
-        single_joint_dh_param (np.ndarray): a 4 x 1 array containing the dh
-            parameters to describe a single joint on a robot arm in the format
-            [theta_offset, alpha, a, d].
+        theta (float): The theta value of the single joint.
+        single_joint_dh_param (np.ndarray): A vector of length 4 containing the
+            dh parameters to describe a single joint on a robot arm in the
+            format [theta_offset, alpha, a, d].
 
     Returns:
-        np.ndarray: a 4 x 4 transformation matrix describing the rotation and
+        np.ndarray: A 4x4 transformation matrix describing the rotation and
             position of the inputted joint relative to the previous joint's
             reference frame.
     """
@@ -78,19 +79,19 @@ def get_t_mats(thetas: np.ndarray, dh_params: np.ndarray):
     of the end effector relative to the base frame. 
 
     Args:
-        thetas (np.ndarray): a 1 x n array of joint angles in the format
-            [joint angle 1, joint angle 2, ... , joint angle n] in which n is 
+        thetas (np.ndarray): A vector of length N of joint angles in the format
+            [joint angle 1, joint angle 2, ... , joint angle N] in which N is 
             the number of joints on the robot arm. 
-        dh_params (np.ndarray): a 4 x n array containing the dh parameters to 
+        dh_params (np.ndarray): A 4xN array containing the dh parameters to 
             describe every joint on the robot arm in the format
-            [[theta offset 1, theta offset 2, ... , theta offset n],
-            [alpha 1, alpha 2, ... , alpha n],
-            [a 1, a 2, ... , a n], 
-            [d 1, d 2, ... , d n]]
-            where n is the number of joints on the robot arm. 
+            [[theta offset 1, theta offset 2, ... , theta offset N],
+            [alpha 1, alpha 2, ... , alpha N],
+            [a 1, a 2, ... , a N], 
+            [d 1, d 2, ... , d N]]
+            where N is the number of joints on the robot arm. 
 
     Returns:
-        np.ndarray: an array containing 4 x 4 transformation matrices that each
+        np.ndarray: An array containing 4x4 transformation matrices that each
             describe the position and orientation of each joint relative to the
             base frame in the format [t mat 1, t mat 2, ... , t mat num joints].
     """
@@ -112,26 +113,26 @@ def get_end_effector_pose(thetas: np.ndarray, dh_params: np.ndarray,
     thetas. 
 
     Args:
-        thetas (np.ndarray): a 1 x n array of joint angles in the format
-            [joint angle 1, joint angle 2, ... , joint angle n] in which n is 
-            the number of joints on the robot arm. 
-        dh_params (np.ndarray): a 4 x n array containing the dh parameters to 
+        thetas (np.ndarray): A vector of length N of joint angles in
+            the format [joint angle 1, joint angle 2, ... , joint angle N] in 
+            which N is the number of joints on the robot arm. 
+        dh_params (np.ndarray): A 4xN array containing the dh parameters to 
             describe every joint on the robot arm in the format
-            [[theta offset 1, theta offset 2, ... , theta offset n],
-            [alpha 1, alpha 2, ... , alpha n],
-            [a 1, a 2, ... , a n], 
-            [d 1, d 2, ... , d n]]
-            where n is the number of joints on the robot arm. 
-        euler (bool, optional): whether the end effector pose should
+            [[theta offset 1, theta offset 2, ... , theta offset N],
+            [alpha 1, alpha 2, ... , alpha N],
+            [a 1, a 2, ... , a N], 
+            [d 1, d 2, ... , d N]]
+            where N is the number of joints on the robot arm. 
+        euler (bool, optional): Whether the end effector pose should
             be returned with its orientation described in ZYX euler angles. 
             Defaults to False which implies orientation is described in
             quaternions.
 
     Returns:
-        np.ndarray: an array describing the position and orientation of the end
-            effector given thetas and dh_params. If euler is true, the array is
-            size 1 x 6, if not, the orientation is described by quaternions, 
-            making the array size 1 x 7. 
+        np.ndarray: An array describing the position and orientation of the end
+            effector given thetas and dh_params. If euler is true, the vector
+            has length 6. If not, the orientation is described by quaternions, 
+            making the vector length 7. 
     """
     t_mats = get_t_mats(thetas, dh_params)
     end_effector_position = t_mats[-1][:3, 3]
@@ -148,18 +149,18 @@ def get_end_effector_pose(thetas: np.ndarray, dh_params: np.ndarray,
 
 
 def get_rotational_error(target_quat: np.ndarray, source_quat: np.ndarray):
-    """calculates the distance in radians between the current orientation of the
+    """Calculates the distance in radians between the current orientation of the
     end effector and the desired orientation, acquiring rotational error for the
     minimization algorithm.
 
     Args:
-        target_quat (np.ndarray): a quaternion in the format [x, y, z, w]
-            describing the target orientation of the end effector
-        source_quat (np.ndarray): a quaternion in the format [x, y, z, w]
-            describing the current orientation of the end effector 
+        target_quat (np.ndarray): A quaternion in the format [x, y, z, w]
+            describing the target orientation of the end effector.
+        source_quat (np.ndarray): A quaternion in the format [x, y, z, w]
+            describing the current orientation of the end effector.
 
     Returns:
-        float: the distance in radians between the current orientation of the
+        float: The distance in radians between the current orientation of the
             end effector and its desired orientation. Always positive. 
     """
     # clip rounds the input to arccos if it is larger in magnitude than 1
@@ -169,24 +170,24 @@ def get_rotational_error(target_quat: np.ndarray, source_quat: np.ndarray):
 
 def get_error_vector(desired_end_effector_pose: np.ndarray,
                      current_end_effector_pose: np.ndarray):
-    """calculates the error between the desired position and orientation of the
+    """Calculates the error between the desired position and orientation of the
     end effector and its current position and orientation.
 
     Args:
-        desired_end_effector_pose (np.ndarray): a 1 x 7 array describing the
-            desired position and orientation of the end effector in the format
-            [x position, y position, z position, x, y, z, w] in which the first
-            three values describe the desired position of the end effector and
-            the last four values describe its orientation as a quaternion. 
-        current_end_effector_pose (np.ndarray): in the same format as 
+        desired_end_effector_pose (np.ndarray): A vector of length 7 describing
+            the desired position and orientation of the end effector in the
+            format [x position, y position, z position, x, y, z, w] in which the
+            first three values describe the desired position of the end effector
+            and the last four values describe its orientation as a quaternion. 
+        current_end_effector_pose (np.ndarray): In the same format as 
             desired_end_effector_pose, but describes the current position and
             orientation of the end effector rather than the desired one. 
 
     Returns:
-        np.ndarray: a 1 x 4 array describing the difference in x, y, z position
-            between the desired end effector pose and the current end effector
-            pose and the difference in radians between the desired orientation
-            and the current orientation. 
+        np.ndarray: A vector of length 4 describing the difference in x, y, z
+            position between the desired end effector pose and the current end
+            effector pose and the difference in radians between the desired
+            orientation and the current orientation. 
     """
     error_vector = np.zeros(4)
     error_vector[:3] = np.subtract(
@@ -203,12 +204,12 @@ def get_mean_squared_error(error_vector: np.ndarray):
     rather than an entire vector of errors. 
 
     Args:
-        error_vector (np.ndarray): a 1 x 4 error vector describing the
-            difference in position and orientation between the current end
+        error_vector (np.ndarray): An error vector of length 4 describing the
+            difference in position and orientation between the current end 
             effector pose and the desired pose. 
 
     Returns:
-        float: the mean squared error between the current end effector pose and
+        float: The mean squared error between the current end effector pose and
             the desired pose. 
     """
     error_vector = error_vector**2
@@ -226,24 +227,24 @@ def objective_function(thetas: np.ndarray,
     or joint angles.
 
     Args:
-        thetas (np.ndarray): a 1 x n array of joint angles in the format
-            [joint angle 1, joint angle 2, ... , joint angle n] in which n is 
+        thetas (np.ndarray): A vector of length N of joint angles in the format
+            [joint angle 1, joint angle 2, ... , joint angle N] in which N is 
             the number of joints on the robot arm. 
-        desired_end_effector_pose (np.ndarray): a 1 x 7 array describing the
-            desired position and orientation of the end effector in the format
-            [x position, y position, z position, x, y, z, w] in which the first
-            three values describe the desired position of the end effector and
-            the last four values describe its orientation as a quaternion. 
-        dh_params (np.ndarray): a 4 x n array containing the dh parameters to 
+        desired_end_effector_pose (np.ndarray): A vector of length 7 describing
+            the desired position and orientation of the end effector in the
+            format [x position, y position, z position, x, y, z, w] in which the
+            first three values describe the desired position of the end effector
+            and the last four values describe its orientation as a quaternion. 
+        dh_params (np.ndarray): A 4xN array containing the dh parameters to 
             describe every joint on the robot arm in the format
-            [[theta offset 1, theta offset 2, ... , theta offset n],
-            [alpha 1, alpha 2, ... , alpha n],
-            [a 1, a 2, ... , a n], 
-            [d 1, d 2, ... , d n]]
-            where n is the number of joints on the robot arm. 
+            [[theta offset 1, theta offset 2, ... , theta offset N],
+            [alpha 1, alpha 2, ... , alpha N],
+            [a 1, a 2, ... , a N], 
+            [d 1, d 2, ... , d N]]
+            where N is the number of joints on the robot arm. 
 
     Returns:
-        float: error between the end effector pose produced from thetas and the
+        float: Error between the end effector pose produced from thetas and the
             desired end effector pose.
     """
     current_end_effector_pose = get_end_effector_pose(
@@ -261,40 +262,40 @@ def find_joint_angles(thetas_init: np.ndarray,
     desired_end_effector_pose.
 
     Args:
-        thetas_init (np.ndarray): a 1 x n array containing joint angles to seed
-            the optimization algorithm with in the format
-            [joint angle 1, joint angle 2, ... , joint angle n], where n is the
+        thetas_init (np.ndarray): A vector of length N containing joint angles
+            to seed the optimization algorithm with in the format
+            [joint angle 1, joint angle 2, ... , joint angle N], where N is the
             number of joints in the robot arm. The closer these angles are to 
             the true joint angles, the more likely it is that the optimization
             will find the true joint angles that lead to the desired end
             effector pose. 
-        desired_end_effector_pose (np.ndarray): a 1 x 7 array describing the
-            desired position and orientation of the end effector in the format
-            [x position, y position, z position, x, y, z, w] in which the first
-            three values describe the desired position of the end effector and
-            the last four values describe its orientation as a quaternion. 
-        dh_params (np.ndarray): a 4 x n array containing the dh parameters to 
+        desired_end_effector_pose (np.ndarray): A vector of length 7 describing
+            the desired position and orientation of the end effector in the
+            format [x position, y position, z position, x, y, z, w] in which the
+            first three values describe the desired position of the end effector
+            and the last four values describe its orientation as a quaternion. 
+        dh_params (np.ndarray): A 4xN array containing the dh parameters to 
             describe every joint on the robot arm in the format
-            [[theta offset 1, theta offset 2, ... , theta offset n],
-            [alpha 1, alpha 2, ... , alpha n],
-            [a 1, a 2, ... , a n], 
-            [d 1, d 2, ... , d n]]
-            where n is the number of joints on the robot arm.
-        smart_seed (bool, optional): whether the algorithm should randomly seed
+            [[theta offset 1, theta offset 2, ... , theta offset N],
+            [alpha 1, alpha 2, ... , alpha N],
+            [a 1, a 2, ... , a N], 
+            [d 1, d 2, ... , d N]]
+            where N is the number of joints on the robot arm.
+        smart_seed (bool, optional): Whether the algorithm should randomly seed
             the optimization until an error lower than the tolerance is achieved
             if the error is too high. Defaults to False.
         tolerance (float, optional): The error tolerated between the desired
             end effector pose and the end effector pose calculated from the
             joint values the optimization solved for. Defaults to 1e-06.
-        seeding_max_iters (int, optional): the number of times to optimize again
+        seeding_max_iters (int, optional): The number of times to optimize again
             with a new random set of thetas_init before giving up on achieving
             the error tolerance. Defaults to 100.
 
     Returns:
-        Tuple(np.ndarray, bool): the set of joint angles the inverse kinematics
+        Tuple(np.ndarray, bool): The set of joint angles the inverse kinematics
             algorithm solved for and whether the joint angles achieve the 
             desired end effector pose within the error tolerance in the format
-            (joint angles, whether algorithm achieved error within tolerance)
+            (joint angles, whether algorithm achieved error within tolerance).
     """
     solved = False
     result = minimize(objective_function, thetas_init,
@@ -331,19 +332,19 @@ def find_joint_angles(thetas_init: np.ndarray,
 
 def draw_coordinate_system(plotter: pv.Plotter, t_mat: np.ndarray,
                            base: bool = False, name: str = ""):
-    """draws a coordinate system on the plotter with the orientation and
+    """Draws a coordinate system on the plotter with the orientation and
     position described by t_mat and with the x, y, and z axes denoted by red,
     green, and blue colors. 
 
     Args:
-        plotter (pv.Plotter): the plotter object to draw the coordinate system
+        plotter (pv.Plotter): The plotter object to draw the coordinate system
             on.
-        t_mat (np.ndarray): a transformation matrix describing the position and
+        t_mat (np.ndarray): A transformation matrix describing the position and
             orientation of the coordinate system relative to the base reference
             frame. 
-        base (bool, optional): whether the coordinate system being drawn
+        base (bool, optional): Whether the coordinate system being drawn
             represents the base of the robot. Defaults to False.
-        name (str, optional): the name of the joint whose coordinate system is
+        name (str, optional): The name of the joint whose coordinate system is
             being drawn so that the position and orientation of the coordinate
             system can be updated with user input. Rather than a new coordinate
             system being drawn, coordinate systems with names can be updated.
@@ -369,12 +370,12 @@ def draw_links(plotter: pv.Plotter, joint_positions: np.ndarray):
     positions relative to the base of the arm. 
 
     Args:
-        plotter (pv.Plotter): the pyvista plotter object to draw the robot arm
-            on
-        joint_positions (np.ndarray): an n x 3 array denoting the position of 
-            each joint relative to the base of the robot in the format 
-            [[x 1, y 1, z 1], [x 2, y 2, z 2], ... , [x n, y n, z n]] where
-            n = number of joints + 1.
+        plotter (pv.Plotter): The pyvista plotter object to draw the robot arm
+            on.
+        joint_positions (np.ndarray): An Nx3 array denoting the position of each
+            joint relative to the base of the robot in the format 
+            [[x 1, y 1, z 1], [x 2, y 2, z 2], ... , [x N, y N, z N]] where
+            N = number of joints + 1.
     """
     poly = pv.PolyData()
     poly.points = joint_positions
@@ -392,17 +393,17 @@ def draw_robot_arm(thetas: np.ndarray, p: pv.Plotter, dh_params: np.ndarray):
     each joint and a robot backbone connecting each joint. 
 
     Args:
-        thetas (np.ndarray): a 1 x n array with joint angles in the format
-            [joint angle 1, joint angle 2, ... , joint angle n], where n is the
-            number of joints. 
-        p (pv.Plotter): the plotter object to draw the robot arm on.
-        dh_params (np.ndarray): a 4 x n array containing the dh parameters to 
+        thetas (np.ndarray): A vector of length N with joint angles in the
+            format [joint angle 1, joint angle 2, ... , joint angle N], where N 
+            is the number of joints. 
+        p (pv.Plotter): The plotter object to draw the robot arm on.
+        dh_params (np.ndarray): A 4xN array containing the dh parameters to 
             describe every joint on the robot arm in the format
-            [[theta offset 1, theta offset 2, ... , theta offset n],
-            [alpha 1, alpha 2, ... , alpha n],
-            [a 1, a 2, ... , a n], 
-            [d 1, d 2, ... , d n]]
-            where n is the number of joints on the robot arm.
+            [[theta offset 1, theta offset 2, ... , theta offset N],
+            [alpha 1, alpha 2, ... , alpha N],
+            [a 1, a 2, ... , a N], 
+            [d 1, d 2, ... , d N]]
+            where N is the number of joints on the robot arm.
     """
     num_joints = len(thetas)
     joint_positions = np.zeros((num_joints + 1, 3))
@@ -414,19 +415,19 @@ def draw_robot_arm(thetas: np.ndarray, p: pv.Plotter, dh_params: np.ndarray):
 
 
 def convert_pose_to_quat(pose_in_euler: np.ndarray):
-    """converts end effector pose in euler angles to pose with orientation
+    """Converts end effector pose in euler angles to pose with orientation
     described as a quaternion. 
 
     Args:
-        pose_in_euler (np.ndarray): a 1 x 6 array describing the position and
-            orientation of the end effector in the format [x, y, z, Z, Y, X] 
+        pose_in_euler (np.ndarray): A vector of length 6 describing the position
+            and orientation of the end effector in the format [x, y, z, Z, Y, X] 
             with orientation represented by euler angles following the ZYX
             convention denoted by capital letters. 
 
     Returns:
-        np.ndarray: a 1 x 7 array describing the position and orientation of the 
-            end effector in the format [x, y, z, X, Y, Z, W] with orientation
-            represented by a quaternion denoted by capital letters. 
+        np.ndarray: A vector of length 7 describing the position and orientation 
+            of the end effector in the format [x, y, z, X, Y, Z, W] with
+            orientation represented by a quaternion denoted by capital letters. 
     """
     rot = Rotation.from_euler(
         'ZYX', pose_in_euler[3:], degrees=False)
@@ -438,20 +439,20 @@ def convert_pose_to_quat(pose_in_euler: np.ndarray):
 
 
 def convert_pose_to_euler(pose_in_quat: np.ndarray):
-    """converts end effector pose with orientation described in quaternions to 
+    """Converts end effector pose with orientation described in quaternions to 
     pose with orientation described in euler angles. 
 
     Args:
-        pose_in_quat (np.ndarray): a 1 x 7 array describing the position and 
-            orientation of the end effector in the format [x, y, z, X, Y, Z, W] 
-            with orientation represented by a quaternion denoted by capital
-            letters.
+        pose_in_quat (np.ndarray): A vector of length 7 describing the position 
+            and orientation of the end effector in the format
+            [x, y, z, X, Y, Z, W] with orientation represented by a quaternion
+            denoted by capital letters.
 
     Returns:
-        [type]: a 1 x 6 array describing the position and orientation of the
-            end effector in the format [x, y, z, Z, Y, X] with orientation
-            represented by euler angles following the ZYX convention denoted by
-            capital letters. 
+        np.ndarray: A vector of length 6 describing the position and orientation
+            of the end effector in the format [x, y, z, Z, Y, X] with
+            orientation represented by euler angles following the ZYX convention
+            denoted by capital letters. 
     """
     rot = Rotation.from_quat(pose_in_quat[3:])
     euler = rot.as_euler("ZYX")
@@ -462,18 +463,18 @@ def convert_pose_to_euler(pose_in_quat: np.ndarray):
 
 
 def animate_forward_kinematics(dh_params: np.ndarray):
-    """generates a GUI that allows users to manipulate the joint angles of the
+    """Generates a GUI that allows users to manipulate the joint angles of the
     robot arm described by dh_params and watch the end effector move accordingly
     in an animation, demonstrating forward kinematics.
 
     Args:
-        dh_params (np.ndarray): a 4 x n array containing the dh parameters to 
+        dh_params (np.ndarray): A 4xN array containing the dh parameters to 
             describe every joint on the robot arm in the format
-            [[theta offset 1, theta offset 2, ... , theta offset n],
-            [alpha 1, alpha 2, ... , alpha n],
-            [a 1, a 2, ... , a n], 
-            [d 1, d 2, ... , d n]]
-            where n is the number of joints on the robot arm.
+            [[theta offset 1, theta offset 2, ... , theta offset N],
+            [alpha 1, alpha 2, ... , alpha N],
+            [a 1, a 2, ... , a N], 
+            [d 1, d 2, ... , d N]]
+            where N is the number of joints on the robot arm.
     """
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     num_joints = len(dh_params[0])
@@ -494,20 +495,20 @@ def animate_forward_kinematics(dh_params: np.ndarray):
 
 
 def animate_inverse_kinematics_sphere(dh_params: np.ndarray):
-    """generates a GUI that allows users to manipulate the position and
+    """Generates a GUI that allows users to manipulate the position and
     orientation of the end effector of the robot arm described by dh_params
     and watch the joint angles move accordingly in an animation, demonstrating
     inverse kinematics. The end effector's position can be changed by clicking
     and dragging a 3D sphere around for the end effector to follow. 
 
     Args:
-        dh_params (np.ndarray): a 4 x n array containing the dh parameters to 
+        dh_params (np.ndarray): A 4xN array containing the dh parameters to 
             describe every joint on the robot arm in the format
-            [[theta offset 1, theta offset 2, ... , theta offset n],
-            [alpha 1, alpha 2, ... , alpha n],
-            [a 1, a 2, ... , a n], 
-            [d 1, d 2, ... , d n]]
-            where n is the number of joints on the robot arm.
+            [[theta offset 1, theta offset 2, ... , theta offset N],
+            [alpha 1, alpha 2, ... , alpha N],
+            [a 1, a 2, ... , a N], 
+            [d 1, d 2, ... , d N]]
+            where N is the number of joints on the robot arm.
     """
     warnings.filterwarnings("ignore", category=DeprecationWarning)
     p = pv.Plotter()
@@ -544,21 +545,21 @@ def animate_inverse_kinematics_sphere(dh_params: np.ndarray):
 
 def animate_inverse_kinematics_sliders(dh_params: np.ndarray,
                                        position_bound: float = 700):
-    """generates a GUI that allows users to manipulate the position and
+    """Generates a GUI that allows users to manipulate the position and
     orientation of the end effector of the robot arm described by dh_params
     and watch the joint angles move accordingly in an animation, demonstrating
     inverse kinematics. The end effector's position can be changed by dragging
     the slider for each axis.
 
     Args:
-        dh_params (np.ndarray): a 4 x n array containing the dh parameters to 
+        dh_params (np.ndarray): A 4xN array containing the dh parameters to 
             describe every joint on the robot arm in the format
-            [[theta offset 1, theta offset 2, ... , theta offset n],
-            [alpha 1, alpha 2, ... , alpha n],
-            [a 1, a 2, ... , a n], 
-            [d 1, d 2, ... , d n]]
-            where n is the number of joints on the robot arm.
-        position_bound (float, optional): because sliders are being used to
+            [[theta offset 1, theta offset 2, ... , theta offset N],
+            [alpha 1, alpha 2, ... , alpha N],
+            [a 1, a 2, ... , a N], 
+            [d 1, d 2, ... , d N]]
+            where N is the number of joints on the robot arm.
+        position_bound (float, optional): Because sliders are being used to
             indicate a desired position, bounds need to be placed on the x, y,
             and z values. Defaults to 700.
     """
@@ -604,31 +605,17 @@ def wrap_joint_angles(joint_angles: np.ndarray, radians: bool = True):
     """Confines a set of joint angles to the period -pi, pi.
 
     Args:
-        joint_angles (np.ndarray): a 1 x n array of joint angles in radians or
-            degrees.
-        radians (bool, optional): whether the input is in radians.
-            Defaults to True.
+        joint_angles (np.ndarray): A vector of length N of joint angles in
+            radians or degrees.
+        radians (bool, optional): Whether the input is in radians. Defaults to
+            True.
 
     Returns:
-        np.ndarray: a 1 x n array of the inputted joint angles confined to the
-            period -pi, pi
+        np.ndarray: A vector of length N of the inputted joint angles confined
+            to the period -pi, pi.
     """
     if radians:
         period = np.pi
     else:
         period = 180
     return (joint_angles + period) % (2 * period) - period
-
-
-# ************* #
-#     MAIN      #
-# ************* #
-
-if __name__ == "__main__":
-    ar3_alpha_vals = [-(math.pi/2), 0, math.pi/2, -(math.pi/2), math.pi/2, 0]
-    ar3_a_vals = [64.2, 305, 0, 0, 0, 0]
-    ar3_d_vals = [169.77, 0, 0, -222.63, 0, -36.25]
-    ar3_theta_offsets = [0, 0, -math.pi/2, 0, 0, math.pi]
-
-    ar3_dh_params = np.array(
-        [ar3_theta_offsets, ar3_alpha_vals, ar3_a_vals, ar3_d_vals])
